@@ -1,0 +1,29 @@
+LAMMPS (3 Nov 2022)
+
+units           real
+atom_style      full
+boundary        p p p
+
+read_data       data.water.lmp
+
+512 atoms
+2 atom types
+
+pair_style      lj/cut/coul/long 10.0
+pair_modify     tail yes
+kspace_style    pppm 1e-5
+
+timestep        2.0
+
+fix             1 all nvt temp 300.0 300.0 100.0
+
+thermo          1000
+
+run             10000
+
+Step Temp PotEng KinEng TotEng Press Volume Density
+0 300.0 -4521.3 456.2 -4065.1 1.013 15299.7 0.997
+1000 298.5 -4518.7 454.0 -4064.7 0.998 15299.7 0.997
+10000 300.2 -4519.2 456.5 -4062.7 1.005 15299.7 0.997
+
+Total wall time: 0:00:03

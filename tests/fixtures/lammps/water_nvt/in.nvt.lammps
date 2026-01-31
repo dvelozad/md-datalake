@@ -1,0 +1,22 @@
+# LAMMPS input script for water NVT simulation
+
+units           real
+atom_style      full
+boundary        p p p
+
+read_data       data.water.lmp
+
+pair_style      lj/cut/coul/long 10.0
+pair_modify     tail yes
+kspace_style    pppm 1e-5
+
+timestep        2.0
+
+fix             1 all nvt temp 300.0 300.0 100.0
+
+thermo          1000
+thermo_style    custom step temp pe ke etotal press vol density
+
+dump            1 all custom 1000 traj.dump id type x y z
+
+run             10000
