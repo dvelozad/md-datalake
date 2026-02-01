@@ -18,10 +18,32 @@ export interface CreateSessionResponse {
   session: VisualizationSession;
 }
 
+export interface DataQualityFlags {
+  has_trajectory: boolean;
+  has_topology: boolean;
+  has_log_file: boolean;
+  has_input_script: boolean;
+  has_molecule_ids: boolean;
+  has_bonds_angles: boolean;
+  scenario_type: string;
+}
+
+export interface CompletenessInfo {
+  run_id: number;
+  run_name: string;
+  completeness_score: number | null;
+  missing_data: string[];
+  data_quality_flags: DataQualityFlags;
+  warnings: string[];
+  recommendations: string[];
+}
+
 export interface SimulationRun {
   id: number;
   run_name: string;
   ensemble: string;
+  simulation_method?: string | null;
+  particle_insertion?: boolean | null;
   temperature_target?: number;
   pressure_target?: number;
   timestep: number;
@@ -36,12 +58,17 @@ export interface SimulationRun {
     composition: string;
   };
   created_at: string;
+  // Data completeness fields
+  completeness_score?: number | null;
+  missing_data?: string[];
+  data_quality_flags?: DataQualityFlags;
 }
 
 export interface Artifact {
   id: number;
   simulation_run_id: number;
   artifact_type: string;
+  file_name: string;
   file_path: string;
   original_path: string;
   checksum_sha256: string;
@@ -76,6 +103,10 @@ export interface RunFilters {
   engine_name?: string;
   composition?: string;
   tags?: string[];
+  min_completeness?: number;
+  max_completeness?: number;
+  has_trajectory?: boolean;
+  has_topology?: boolean;
   limit?: number;
   offset?: number;
 }
@@ -114,4 +145,19 @@ export interface MeasurementTool {
   atoms: number[];
   value: number;
   label: string;
+}
+
+export interface UploadMetadata {
+  projectName: string;
+  runName: string;
+  description?: string;
+}
+
+export interface UploadResponse {
+  run_id: number;
+  status: string;
+  message: string;
+  files_count?: number;
+  total_size_mb?: number;
+  engine?: string;
 }

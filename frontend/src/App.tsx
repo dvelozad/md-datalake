@@ -1,9 +1,10 @@
-import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { RunBrowser } from '@/components/browser/RunBrowser';
 import { VisualizationPage } from '@/pages/VisualizationPage';
+import { RunDetailPage } from '@/pages/RunDetailPage';
+import { UploadPage } from '@/pages/UploadPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,10 +40,9 @@ const theme = createTheme({
 });
 
 function App() {
-  const [selectedRunId, setSelectedRunId] = React.useState<number | null>(null);
-
   const handleRunSelect = (runId: number) => {
-    setSelectedRunId(runId);
+    // Run selection is now handled by navigation to detail page
+    console.log('Selected run:', runId);
   };
 
   return (
@@ -52,6 +52,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<RunBrowser onRunSelect={handleRunSelect} />} />
+            <Route path="/upload" element={<UploadPage />} />
+            <Route path="/runs/:runId" element={<RunDetailPage />} />
             <Route path="/runs/:runId/trajectory" element={<VisualizationPage />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

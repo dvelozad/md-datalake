@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box,
@@ -8,7 +9,9 @@ import {
   Alert,
   Pagination,
   Container,
+  Button,
 } from '@mui/material';
+import { CloudUpload } from '@mui/icons-material';
 import { RunCard } from './RunCard';
 import { FilterPanel } from './FilterPanel';
 import { apiClient } from '@/services/api';
@@ -19,6 +22,7 @@ interface RunBrowserProps {
 }
 
 export const RunBrowser: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState<RunFilters>({
     limit: 20,
     offset: 0,
@@ -26,10 +30,15 @@ export const RunBrowser: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
 
   const [page, setPage] = useState(1);
 
+  const handleRunClick = (runId: number) => {
+    onRunSelect(runId);
+    navigate(`/runs/${runId}`);
+  };
+
   const { data, isLoading, error } = useQuery({
     queryKey: ['runs', filters],
     queryFn: () => apiClient.listRuns(filters),
-    keepPreviousData: true,
+    placeholderData: (previousData) => previousData,
   });
 
   const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
@@ -50,9 +59,16 @@ export const RunBrowser: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Simulation Runs
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+        <Typography variant="h4">Simulation Runs</Typography>
+        <Button
+          variant="contained"
+          startIcon={<CloudUpload />}
+          onClick={() => navigate('/upload')}
+        >
+          Upload Trajectory
+        </Button>
+      </Box>
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={3}>
@@ -105,7 +121,7 @@ export const RunBrowser: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
               <Grid container spacing={2}>
                 {data.runs.map((run) => (
                   <Grid item xs={12} sm={6} md={4} lg={3} key={run.id}>
-                    <RunCard run={run} onClick={onRunSelect} />
+                    <RunCard run={run} onClick={handleRunClick} />
                   </Grid>
                 ))}
               </Grid>

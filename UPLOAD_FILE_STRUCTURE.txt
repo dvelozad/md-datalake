@@ -1,0 +1,312 @@
+# Upload Feature - File Structure
+
+## New Files Created
+
+### Backend (1 file)
+src/mddatalake/api/routes/
+└── upload.py                        # Upload endpoint (178 lines)
+    ├── ALLOWED_EXTENSIONS           # File type whitelist
+    ├── MAX_FILE_SIZE_MB             # Size limit (5GB)
+    ├── validate_file_extension()    # Extension validation
+    ├── validate_file_size()         # Size validation
+    ├── validate_upload_directory()  # MD engine detection
+    ├── save_upload_file()           # Streaming file save
+    └── upload_simulation()          # Main upload endpoint
+
+### Frontend (5 files)
+frontend/src/
+├── pages/
+│   └── UploadPage.tsx               # Main upload page (201 lines)
+│       ├── File selection state
+│       ├── Metadata form state
+│       ├── Upload progress state
+│       ├── Error handling
+│       └── Navigation after upload
+│
+└── components/upload/
+    ├── UploadDropzone.tsx           # Drag-and-drop selector (81 lines)
+    │   ├── Drag-and-drop events
+    │   ├── Click-to-browse
+    │   └── Visual feedback
+    │
+    ├── FileList.tsx                 # File list display (95 lines)
+    │   ├── File type detection
+    │   ├── Size formatting
+    │   └── Remove functionality
+    │
+    ├── UploadMetadataForm.tsx       # Metadata form (42 lines)
+    │   ├── Project name input
+    │   ├── Run name input
+    │   └── Description textarea
+    │
+    └── UploadProgress.tsx           # Progress bar (23 lines)
+        ├── Linear progress bar
+        └── Percentage display
+
+### Documentation (4 files)
+docs/
+└── UPLOAD_FEATURE.md                # Complete feature docs (465 lines)
+
+UPLOAD_IMPLEMENTATION_SUMMARY.md     # Implementation summary (350 lines)
+UPLOAD_TESTING_CHECKLIST.md         # Testing checklist (550 lines)
+UPLOAD_QUICKSTART.md                 # Quick start guide (300 lines)
+UPLOAD_FILE_STRUCTURE.txt            # This file
+
+## Modified Files
+
+### Backend (1 file)
+src/mddatalake/api/
+└── main.py
+    ├── +import upload                # Line 9
+    └── +app.include_router(upload)   # Line 61
+
+### Frontend (4 files)
+frontend/src/
+├── App.tsx
+│   ├── +import UploadPage            # Line 7
+│   └── +Route path="/upload"        # Line 55
+│
+├── services/
+│   └── api.ts
+│       └── +uploadTrajectory()       # Lines 132-155 (24 lines)
+│
+├── types/
+│   └── visualization.ts
+│       ├── +UploadMetadata           # Interface
+│       └── +UploadResponse           # Interface
+│
+└── components/browser/
+    └── RunBrowser.tsx
+        ├── +import CloudUpload       # Line 13
+        └── +Upload button            # Lines 63-71
+
+## File Statistics
+
+### Lines of Code
+Backend:
+  - upload.py: 178 lines
+
+Frontend:
+  - UploadPage.tsx: 201 lines
+  - UploadDropzone.tsx: 81 lines
+  - FileList.tsx: 95 lines
+  - UploadMetadataForm.tsx: 42 lines
+  - UploadProgress.tsx: 23 lines
+  - api.ts (new method): 24 lines
+  - types (new interfaces): 12 lines
+  
+  Total frontend: 478 lines
+
+Documentation:
+  - UPLOAD_FEATURE.md: 465 lines
+  - UPLOAD_IMPLEMENTATION_SUMMARY.md: 350 lines
+  - UPLOAD_TESTING_CHECKLIST.md: 550 lines
+  - UPLOAD_QUICKSTART.md: 300 lines
+  
+  Total documentation: 1,665 lines
+
+### Total Impact
+- New files: 11
+- Modified files: 5
+- Total new code: 656 lines
+- Total documentation: 1,665 lines
+- Total: 2,321 lines
+
+## Directory Structure
+
+```
+md-datalake/
+├── src/mddatalake/api/
+│   ├── main.py                      # Modified (added upload router)
+│   └── routes/
+│       ├── upload.py                # NEW (upload endpoint)
+│       ├── runs.py
+│       ├── artifacts.py
+│       ├── visualization.py
+│       └── completeness.py
+│
+├── frontend/src/
+│   ├── App.tsx                      # Modified (added /upload route)
+│   │
+│   ├── pages/
+│   │   ├── UploadPage.tsx           # NEW (main upload page)
+│   │   ├── RunDetailPage.tsx
+│   │   └── VisualizationPage.tsx
+│   │
+│   ├── components/
+│   │   ├── upload/                  # NEW (upload components)
+│   │   │   ├── UploadDropzone.tsx
+│   │   │   ├── FileList.tsx
+│   │   │   ├── UploadMetadataForm.tsx
+│   │   │   └── UploadProgress.tsx
+│   │   │
+│   │   ├── browser/
+│   │   │   └── RunBrowser.tsx       # Modified (added upload button)
+│   │   │
+│   │   └── visualization/
+│   │
+│   ├── services/
+│   │   └── api.ts                   # Modified (added uploadTrajectory)
+│   │
+│   └── types/
+│       └── visualization.ts         # Modified (added upload types)
+│
+├── docs/
+│   └── UPLOAD_FEATURE.md            # NEW (feature documentation)
+│
+├── UPLOAD_IMPLEMENTATION_SUMMARY.md  # NEW (implementation summary)
+├── UPLOAD_TESTING_CHECKLIST.md      # NEW (testing checklist)
+├── UPLOAD_QUICKSTART.md              # NEW (quick start guide)
+└── UPLOAD_FILE_STRUCTURE.txt         # NEW (this file)
+```
+
+## Component Dependencies
+
+### Backend Flow
+```
+main.py
+  └── routes/upload.py
+      ├── db.session.get_db()
+      ├── ingestion.service.IngestionService
+      └── parsers.detect_engine()
+```
+
+### Frontend Flow
+```
+App.tsx
+  └── pages/UploadPage.tsx
+      ├── components/upload/UploadDropzone.tsx
+      ├── components/upload/FileList.tsx
+      ├── components/upload/UploadMetadataForm.tsx
+      ├── components/upload/UploadProgress.tsx
+      ├── services/api.uploadTrajectory()
+      └── types/visualization.ts
+```
+
+### Navigation Flow
+```
+RunBrowser.tsx
+  [Upload Trajectory button]
+    ↓
+  UploadPage.tsx (/upload)
+    [User uploads files]
+    ↓
+  api.uploadTrajectory()
+    → POST /api/v1/upload
+    ↓
+  Success
+    ↓
+  RunDetailPage.tsx (/runs/:id)
+```
+
+## Key Integrations
+
+### Existing Systems Used
+- ✅ IngestionService (no duplication)
+- ✅ detect_engine() (LAMMPS/GROMACS detection)
+- ✅ Database session (get_db)
+- ✅ React Router (navigation)
+- ✅ Material-UI (components)
+- ✅ Axios (HTTP client)
+- ✅ React Query (not used in upload, but available)
+
+### New Endpoints
+- POST /api/v1/upload
+
+### New Routes
+- /upload
+
+### New API Methods
+- apiClient.uploadTrajectory()
+
+## Testing Files
+
+### Test Script
+```
+/tmp/claude.../scratchpad/
+└── test_upload.sh                   # Backend test script
+```
+
+### Testing Coverage
+- Backend: API endpoint tests
+- Frontend: Component tests (manual)
+- Integration: End-to-end tests (manual)
+- Documentation: Testing checklist
+
+## Configuration Points
+
+### Backend Config
+src/mddatalake/api/routes/upload.py:
+  - MAX_FILE_SIZE_MB = 5000
+  - ALLOWED_EXTENSIONS = {...}
+
+### Frontend Config
+frontend/src/services/api.ts:
+  - timeout: 300000 (5 minutes)
+
+### Routes
+frontend/src/App.tsx:
+  - path="/upload"
+
+## Version Control
+
+### Git Status
+New files (untracked):
+  - src/mddatalake/api/routes/upload.py
+  - frontend/src/pages/UploadPage.tsx
+  - frontend/src/components/upload/*.tsx
+  - docs/UPLOAD_FEATURE.md
+  - UPLOAD_*.md
+
+Modified files (tracked):
+  - src/mddatalake/api/main.py
+  - frontend/src/App.tsx
+  - frontend/src/services/api.ts
+  - frontend/src/types/visualization.ts
+  - frontend/src/components/browser/RunBrowser.tsx
+
+### Recommended Commit Message
+```
+feat: Add web-based trajectory upload system
+
+- Add POST /api/v1/upload endpoint with multipart file handling
+- Add upload page with drag-and-drop interface
+- Support LAMMPS and GROMACS file formats
+- Add file validation (extension and size)
+- Integrate with existing ingestion pipeline
+- Add real-time upload progress tracking
+- Add comprehensive documentation and testing guides
+
+Files: 11 new, 5 modified
+LOC: 656 code + 1665 docs = 2321 total
+```
+
+## Quick Reference
+
+### Start Backend
+```bash
+poetry run uvicorn mddatalake.api.main:app --reload --host 0.0.0.0 --port 8080
+```
+
+### Start Frontend
+```bash
+cd frontend && npm run dev
+```
+
+### Test Upload
+```bash
+curl -X POST http://localhost:8080/api/v1/upload \
+  -F "project_name=test" \
+  -F "run_name=test" \
+  -F "files=@file.dump"
+```
+
+### Access UI
+http://localhost:3000 → Click "Upload Trajectory"
+
+### API Docs
+http://localhost:8080/docs
+
+---
+
+End of file structure documentation.

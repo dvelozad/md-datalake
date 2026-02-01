@@ -7,6 +7,7 @@ import type {
   RunFilters,
   RunListResponse,
   VisualizationSession,
+  CompletenessInfo,
 } from '@/types/visualization';
 
 class APIClient {
@@ -41,7 +42,7 @@ class APIClient {
 
   async getRunArtifacts(runId: number): Promise<Artifact[]> {
     const response = await this.client.get(`/runs/${runId}/artifacts`);
-    return response.data;
+    return response.data.artifacts;
   }
 
   async getRunObservables(runId: number): Promise<Observable[]> {
@@ -100,6 +101,64 @@ class APIClient {
 
   async generateThumbnail(runId: number): Promise<{ thumbnail_url: string }> {
     const response = await this.client.post(`/runs/${runId}/thumbnail`);
+    return response.data;
+  }
+
+  // Data completeness
+  async getRunCompleteness(runId: number): Promise<CompletenessInfo> {
+    const response = await this.client.get(`/runs/${runId}/completeness`);
+    return response.data;
+  }
+
+  async getIncompleteRuns(maxScore: number = 90, limit: number = 50): Promise<CompletenessInfo[]> {
+    const response = await this.client.get('/runs/incomplete', {
+      params: { max_score: maxScore, limit },
+    });
+    return response.data;
+  }
+
+  async getCompletenessStatistics(): Promise<{
+    total_runs: number;
+    complete_runs: number;
+    incomplete_runs: number;
+    average_score: number;
+    score_distribution: Record<string, number>;
+  }> {
+    const response = await this.client.get('/runs/statistics/completeness');
+    return response.data;
+  }
+
+  // Upload trajectory
+  async uploadTrajectory(
+    files: File[],
+    metadata: { projectName: string; runName: string; description?: string },
+    onProgress?: (progress: number) => void
+  ): Promise<{ run_id: number; status: string; message: string }> {
+    const formData = new FormData();
+
+    formData.append('project_name', metadata.projectName);
+    formData.append('run_name', metadata.runName);
+    if (metadata.description) {
+      formData.append('description', metadata.description);
+    }
+
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    const response = await this.client.post('/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 300000, // 5 minutes
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          onProgress(percentCompleted);
+        }
+      },
+    });
+
     return response.data;
   }
 }
