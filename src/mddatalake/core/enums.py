@@ -64,6 +64,13 @@ class CoulombType(str, enum.Enum):
     NONE = "none"
 
 
+class SimulationMethodType(str, enum.Enum):
+    """Simulation method types."""
+
+    ATOMISTIC = "ATOMISTIC"  # PostgreSQL enum uses uppercase names
+    H_ADRESS = "H_ADRESS"  # PostgreSQL enum uses uppercase with underscore
+
+
 class ArtifactType(str, enum.Enum):
     """Artifact file types."""
 
@@ -75,3 +82,26 @@ class ArtifactType(str, enum.Enum):
     ENERGY = "energy"
     ANALYSIS = "analysis"
     OTHER = "other"
+
+
+class ValidationLevel(str, enum.Enum):
+    """Validation strictness levels."""
+
+    STRICT = "strict"      # Block upload with HTTP 422 error
+    WARNING = "warning"    # Allow but show warnings
+    INFO = "info"          # Allow with informational messages
+
+
+class LammpsAtomStyle(str, enum.Enum):
+    """LAMMPS atom style formats."""
+
+    ATOMIC = "atomic"
+    BOND = "bond"
+    ANGLE = "angle"
+    MOLECULAR = "molecular"
+    FULL = "full"
+    CHARGE = "charge"
+    DIPOLE = "dipole"
+    SPHERE = "sphere"
+    ELLIPSOID = "ellipsoid"
+    FULL_GC_HADRESS = "full/gc/HAdResS"  # H-AdResS custom atom style

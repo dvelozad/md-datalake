@@ -280,6 +280,31 @@ async def get_topology(
         )
 
 
+
+async def _run_preview_background(artifact_id: int):
+    """Run preview extraction in background with isolated session."""
+    from mddatalake.db.session import AsyncSessionLocal
+    from mddatalake.ingestion.preview_service import PreviewExtractionService
+    from mddatalake.storage import get_storage_backend
+    from mddatalake.db.models.artifact import Artifact
+    from sqlalchemy import select
+
+    async with AsyncSessionLocal() as session:
+        try:
+            # Re-fetch artifact to detach from closed session
+            result = await session.execute(
+                select(Artifact).where(Artifact.id == artifact_id)
+            )
+            artifact = result.scalar_one_or_none()
+            
+            if artifact:
+                preview_service = PreviewExtractionService(session, get_storage_backend())
+                await preview_service.extract_preview(artifact)
+        except Exception as e:
+            # Log error (in production use proper logger)
+            print(f"Background preview extraction failed: {e}")
+
+
 @router.get("/runs/{run_id}/preview")
 async def get_trajectory_preview(
     run_id: int,
@@ -305,6 +330,8 @@ async def get_trajectory_preview(
         select(Artifact)
         .where(Artifact.simulation_run_id == run_id)
         .where(Artifact.artifact_type == ArtifactType.TRAJECTORY)
+        .order_by(Artifact.file_size_bytes.desc())  # Select largest trajectory if multiple
+        .limit(1)
     )
     artifact = result.scalar_one_or_none()
 
@@ -351,12 +378,20 @@ async def get_trajectory_preview(
             "Preview not available for this trajectory (file too large or incompatible format)"
         )
 
-    else:  # pending
+    else:  # pending or None (not set)
+        if artifact.preview_status != "pending":
+            # Set to pending if not already
+            artifact.preview_status = "pending"
+            await db.commit()
+
+        # Trigger generation in background
+        asyncio.create_task(_run_preview_background(artifact.id))
+
         return JSONResponse(
             status_code=202,
             content={
                 "status": "pending",
-                "message": "Preview generation queued, please retry shortly"
+                "message": "Preview generation started, please retry shortly"
             }
         )
 
@@ -382,6 +417,8 @@ async def regenerate_preview(
         select(Artifact)
         .where(Artifact.simulation_run_id == run_id)
         .where(Artifact.artifact_type == ArtifactType.TRAJECTORY)
+        .order_by(Artifact.file_size_bytes.desc())  # Select largest trajectory if multiple
+        .limit(1)
     )
     artifact = result.scalar_one_or_none()
 
@@ -399,10 +436,7 @@ async def regenerate_preview(
         )
 
     # Trigger regeneration
-    preview_service = PreviewExtractionService(db, get_storage_backend())
-
-    # Launch async
-    asyncio.create_task(preview_service.extract_preview(artifact))
+    asyncio.create_task(_run_preview_background(artifact.id))
 
     return JSONResponse(
         status_code=202,
@@ -467,3 +501,4 @@ async def generate_thumbnail(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to generate thumbnail: {str(e)}"
         )
+

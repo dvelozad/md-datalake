@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from mddatalake.api.routes import artifacts, completeness, health, runs, upload, visualization
+from mddatalake.api.routes import artifacts, completeness, health, plots, runs, upload, visualization
 from mddatalake.api.scheduler import scheduler
 from mddatalake.__version__ import __version__
 
@@ -58,3 +58,4 @@ app.include_router(artifacts.router, prefix="/api/v1", tags=["Artifacts"])
 app.include_router(visualization.router, prefix="/api/v1", tags=["Visualization"])
 app.include_router(completeness.router, prefix="/api/v1", tags=["Data Quality"])
 app.include_router(upload.router, prefix="/api/v1", tags=["Upload"])
+app.include_router(plots.router, prefix="/api/v1", tags=["Plots"])

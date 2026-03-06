@@ -8,6 +8,8 @@ import type {
   RunListResponse,
   VisualizationSession,
   CompletenessInfo,
+  UploadResponse,
+  UploadMetadata,
 } from '@/types/visualization';
 
 class APIClient {
@@ -56,11 +58,40 @@ class APIClient {
     return response.data;
   }
 
-  async downloadArtifact(artifactId: number): Promise<Blob> {
-    const response = await this.client.get(`/artifacts/${artifactId}/download`, {
+  async downloadArtifact(runId: number, artifactId: number, fileName: string): Promise<void> {
+    const response = await this.client.get(
+      `/runs/${runId}/artifacts/${artifactId}/download`,
+      {
+        responseType: 'blob',
+      }
+    );
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  }
+
+  async downloadAllArtifacts(runId: number, runName: string): Promise<void> {
+    const response = await this.client.get(`/runs/${runId}/artifacts/download-all`, {
       responseType: 'blob',
+      timeout: 120000, // 2 minutes for large zip files
     });
-    return response.data;
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `run_${runId}_${runName}_artifacts.zip`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 
   // Visualization sessions
@@ -131,15 +162,36 @@ class APIClient {
   // Upload trajectory
   async uploadTrajectory(
     files: File[],
-    metadata: { projectName: string; runName: string; description?: string },
+    metadata: UploadMetadata,
+    artifactTypes: Record<string, string>,
     onProgress?: (progress: number) => void
-  ): Promise<{ run_id: number; status: string; message: string }> {
+  ): Promise<UploadResponse> {
     const formData = new FormData();
 
     formData.append('project_name', metadata.projectName);
     formData.append('run_name', metadata.runName);
     if (metadata.description) {
       formData.append('description', metadata.description);
+    }
+    if (metadata.atomStyle) {
+      formData.append('atom_style', metadata.atomStyle);
+    }
+    if (metadata.simulationMethod) {
+      formData.append('simulation_method', metadata.simulationMethod);
+    }
+    if (metadata.ensemble) {
+      formData.append('ensemble', metadata.ensemble);
+    }
+    if (metadata.temperatureTarget !== undefined) {
+      formData.append('temperature_target', metadata.temperatureTarget.toString());
+    }
+    if (metadata.pressureTarget !== undefined) {
+      formData.append('pressure_target', metadata.pressureTarget.toString());
+    }
+
+    // Send artifact types as JSON if any are manually set
+    if (Object.keys(artifactTypes).length > 0) {
+      formData.append('artifact_types', JSON.stringify(artifactTypes));
     }
 
     files.forEach(file => {
@@ -148,7 +200,124 @@ class APIClient {
 
     const response = await this.client.post('/upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
-      timeout: 300000, // 5 minutes
+      timeout: 1800000, // 30 minutes
+      onUploadProgress: (progressEvent) => {
+        if (progressEvent.total && onProgress) {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total
+          );
+          onProgress(percentCompleted);
+        }
+      },
+    });
+
+    return response.data;
+  }
+
+  // Update run
+  async updateRun(
+    runId: number,
+    data: { run_name?: string; description?: string }
+  ): Promise<{ id: number; run_name: string; description: string; message: string }> {
+    const response = await this.client.patch(`/runs/${runId}`, data);
+    return response.data;
+  }
+
+  // Delete run
+  async deleteRun(runId: number): Promise<{ id: number; status: string; message: string }> {
+    const response = await this.client.delete(`/runs/${runId}`);
+    return response.data;
+  }
+
+  // Get available observables for plotting
+  async getAvailableObservables(
+    runId: number
+  ): Promise<{ available: boolean; columns: string[]; engine: string; message: string }> {
+    const response = await this.client.get(`/runs/${runId}/available-observables`);
+    return response.data;
+  }
+
+  // Get plot data for observables
+  async getPlotData(
+    runId: number,
+    observables?: string[]
+  ): Promise<{
+    columns: string[];
+    data: Record<string, number[]>;
+    units: Record<string, string>;
+    engine: string;
+    n_points: number;
+  }> {
+    const params = observables ? { observables } : {};
+    const response = await this.client.get(`/runs/${runId}/plot-data`, { params });
+    return response.data;
+  }
+
+  // Get metadata from log file
+  async getLogMetadata(
+    runId: number
+  ): Promise<{
+    engine: string;
+    extracted_metadata: {
+      units: string | null;
+      timestep: number | null;
+      first_step: number | null;
+      last_step: number | null;
+      n_steps: number | null;
+      simulation_time: number | null;
+    };
+    can_update_run: boolean;
+    message: string;
+  }> {
+    const response = await this.client.get(`/runs/${runId}/log-metadata`);
+    return response.data;
+  }
+
+  // Update run metadata from log file
+  async updateRunFromLog(
+    runId: number
+  ): Promise<{
+    run_id: number;
+    updated_fields: string[];
+    metadata: any;
+    message: string;
+  }> {
+    const response = await this.client.post(`/runs/${runId}/update-from-log`);
+    return response.data;
+  }
+
+  // Upload additional artifacts to existing run
+  async uploadArtifacts(
+    runId: number,
+    files: File[],
+    artifactTypes?: Record<string, string>,
+    onProgress?: (progress: number) => void
+  ): Promise<{
+    run_id: number;
+    uploaded_count: number;
+    skipped_count: number;
+    artifacts: Array<{
+      filename: string;
+      artifact_type?: string;
+      file_size_bytes?: number;
+      status: string;
+      message?: string;
+    }>;
+    message: string;
+  }> {
+    const formData = new FormData();
+
+    files.forEach(file => {
+      formData.append('files', file);
+    });
+
+    if (artifactTypes) {
+      formData.append('artifact_types', JSON.stringify(artifactTypes));
+    }
+
+    const response = await this.client.post(`/runs/${runId}/artifacts/upload`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 1800000, // 30 minutes
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const percentCompleted = Math.round(

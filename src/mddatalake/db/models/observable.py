@@ -1,6 +1,7 @@
 """Observable model - computed properties."""
 
 from sqlalchemy import Float, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from mddatalake.db.base import Base
@@ -29,6 +30,9 @@ class Observable(Base):
 
     # Units
     units: Mapped[str | None] = mapped_column(String(50))
+
+    # Timeseries Data (JSONB for full arrays)
+    timeseries_data: Mapped[dict | None] = mapped_column(JSONB)
 
     # Timeseries Reference
     artifact_id: Mapped[int | None] = mapped_column(ForeignKey("artifacts.id"))

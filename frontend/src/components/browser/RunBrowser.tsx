@@ -3,19 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   Box,
-  Grid,
   Typography,
-  CircularProgress,
   Alert,
-  Pagination,
   Container,
   Button,
+  IconButton,
+  Tooltip,
+  Drawer,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import { CloudUpload } from '@mui/icons-material';
-import { RunCard } from './RunCard';
+import { CloudUpload, Refresh, FilterList } from '@mui/icons-material';
+import { RunTable } from './RunTable';
 import { FilterPanel } from './FilterPanel';
 import { apiClient } from '@/services/api';
 import type { RunFilters } from '@/types/visualization';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { useThemeContext } from '@/contexts/ThemeContext';
 
 interface RunBrowserProps {
   onRunSelect: (runId: number) => void;
@@ -23,124 +27,146 @@ interface RunBrowserProps {
 
 export const RunBrowser: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const { mode, toggleTheme } = useThemeContext();
   const [filters, setFilters] = useState<RunFilters>({
     limit: 20,
     offset: 0,
   });
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(!isMobile);
 
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
 
-  const handleRunClick = (runId: number) => {
-    onRunSelect(runId);
-    navigate(`/runs/${runId}`);
-  };
-
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch, isRefetching } = useQuery({
     queryKey: ['runs', filters],
     queryFn: () => apiClient.listRuns(filters),
     placeholderData: (previousData) => previousData,
   });
 
-  const handlePageChange = (_event: React.ChangeEvent<unknown>, value: number) => {
-    setPage(value);
+  const handleRefresh = () => {
+    refetch();
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
     setFilters({
       ...filters,
-      offset: (value - 1) * (filters.limit || 20),
+      offset: newPage * (filters.limit || 20),
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handlePageSizeChange = (newPageSize: number) => {
+    setFilters({
+      ...filters,
+      limit: newPageSize,
+      offset: 0,
+    });
+    setPage(0);
   };
 
   const handleFiltersChange = (newFilters: RunFilters) => {
     setFilters(newFilters);
-    setPage(1);
+    setPage(0);
   };
-
-  const totalPages = data ? Math.ceil(data.total / (filters.limit || 20)) : 0;
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4">Simulation Runs</Typography>
-        <Button
-          variant="contained"
-          startIcon={<CloudUpload />}
-          onClick={() => navigate('/upload')}
-        >
-          Upload Trajectory
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h4">Simulation Runs</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {data ? `${data.total.toLocaleString()} total` : ''}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Tooltip title={filterDrawerOpen ? 'Hide filters' : 'Show filters'}>
+            <IconButton
+              onClick={() => setFilterDrawerOpen(!filterDrawerOpen)}
+              color={filterDrawerOpen ? 'primary' : 'default'}
+            >
+              <FilterList />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Refresh runs">
+            <IconButton onClick={handleRefresh} disabled={isRefetching} color="primary">
+              <Refresh />
+            </IconButton>
+          </Tooltip>
+          <ThemeToggle mode={mode} onToggle={toggleTheme} />
+          <Button
+            variant="contained"
+            startIcon={<CloudUpload />}
+            onClick={() => navigate('/upload')}
+          >
+            Upload Trajectory
+          </Button>
+        </Box>
       </Box>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={3}>
+      {/* Main Content with Filter Drawer */}
+      <Box sx={{ display: 'flex', gap: 3, position: 'relative' }}>
+        {/* Filter Drawer */}
+        <Drawer
+          variant={isMobile ? 'temporary' : 'persistent'}
+          open={filterDrawerOpen}
+          onClose={() => setFilterDrawerOpen(false)}
+          sx={{
+            width: 280,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: 280,
+              position: isMobile ? 'fixed' : 'relative',
+              height: isMobile ? '100vh' : 'auto',
+              boxSizing: 'border-box',
+              border: 'none',
+            },
+          }}
+        >
           <FilterPanel filters={filters} onFiltersChange={handleFiltersChange} />
-        </Grid>
+        </Drawer>
 
-        <Grid item xs={12} md={9}>
-          {isLoading && (
-            <Box
-              sx={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: 400,
-              }}
-            >
-              <CircularProgress />
-            </Box>
-          )}
-
+        {/* Table */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
           {error && (
-            <Alert severity="error">
+            <Alert severity="error" sx={{ mb: 2 }}>
               Failed to load simulation runs: {(error as Error).message}
             </Alert>
           )}
 
-          {data && data.runs.length === 0 && (
+          {data && data.runs.length === 0 && !isLoading ? (
             <Box
               sx={{
                 display: 'flex',
+                flexDirection: 'column',
                 justifyContent: 'center',
                 alignItems: 'center',
                 minHeight: 400,
+                gap: 2,
               }}
             >
-              <Typography variant="body1" color="text.secondary">
-                No simulation runs found matching the filters
+              <Typography variant="h6" color="text.secondary">
+                No simulation runs found
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Try adjusting your filters or upload a new trajectory
               </Typography>
             </Box>
+          ) : (
+            <RunTable
+              runs={data?.runs || []}
+              isLoading={isLoading}
+              page={page}
+              pageSize={filters.limit || 20}
+              totalRows={data?.total || 0}
+              onPageChange={handlePageChange}
+              onPageSizeChange={handlePageSizeChange}
+              onRunSelect={onRunSelect}
+            />
           )}
-
-          {data && data.runs.length > 0 && (
-            <>
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" color="text.secondary">
-                  Showing {data.runs.length} of {data.total} runs
-                </Typography>
-              </Box>
-
-              <Grid container spacing={2}>
-                {data.runs.map((run) => (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={run.id}>
-                    <RunCard run={run} onClick={handleRunClick} />
-                  </Grid>
-                ))}
-              </Grid>
-
-              {totalPages > 1 && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                  <Pagination
-                    count={totalPages}
-                    page={page}
-                    onChange={handlePageChange}
-                    color="primary"
-                    size="large"
-                  />
-                </Box>
-              )}
-            </>
-          )}
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
     </Container>
   );
 };

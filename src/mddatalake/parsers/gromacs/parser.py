@@ -74,6 +74,16 @@ class GromacsParser:
         if traj_files:
             metadata["files"]["trajectories"] = [str(f) for f in traj_files]
 
+        # GROMACS trajectories typically don't include molecule IDs in XTC/TRR
+        # They would need to be inferred from topology
+        metadata["has_molecule_ids"] = False
+
+        # Check if topology has bonds/angles (from .top file)
+        if top_file:
+            metadata["has_bonds_angles"] = self._check_topology_bonds_angles(top_file)
+        else:
+            metadata["has_bonds_angles"] = False
+
         # Classify all artifacts
         metadata["artifacts"] = self._classify_artifacts()
 
@@ -360,3 +370,27 @@ class GromacsParser:
             return ArtifactType.CHECKPOINT
 
         return ArtifactType.OTHER
+
+    def _check_topology_bonds_angles(self, top_file: Path) -> bool:
+        """Check if GROMACS topology file contains bond or angle definitions.
+
+        Args:
+            top_file: Path to GROMACS .top file
+
+        Returns:
+            True if [ bonds ] or [ angles ] sections are present
+        """
+        try:
+            with open(top_file, "r") as f:
+                content = f.read()
+
+            # Check for [ bonds ] or [ angles ] sections
+            if re.search(r"\[\s*bonds\s*\]", content, re.IGNORECASE):
+                return True
+            if re.search(r"\[\s*angles\s*\]", content, re.IGNORECASE):
+                return True
+
+        except Exception:
+            pass
+
+        return False

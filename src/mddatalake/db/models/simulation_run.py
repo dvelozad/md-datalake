@@ -13,9 +13,18 @@ from sqlalchemy import (
     String,
     Text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from mddatalake.core.enums import BarostatType, CoulombType, EnsembleType, IntegratorType, ThermostatType
+from mddatalake.core.enums import (
+    BarostatType,
+    CoulombType,
+    EnsembleType,
+    IntegratorType,
+    LammpsAtomStyle,
+    SimulationMethodType,
+    ThermostatType,
+)
 from mddatalake.db.base import Base
 
 
@@ -42,6 +51,10 @@ class SimulationRun(Base):
     ensemble: Mapped[EnsembleType] = mapped_column(
         Enum(EnsembleType, name="ensemble_type"), nullable=False, index=True
     )
+    simulation_method: Mapped[SimulationMethodType | None] = mapped_column(
+        Enum(SimulationMethodType, name="simulation_method_type"), index=True
+    )
+    particle_insertion: Mapped[bool | None] = mapped_column(index=True)
     integrator: Mapped[IntegratorType | None] = mapped_column(
         Enum(IntegratorType, name="integrator_type"), index=True
     )
@@ -53,6 +66,9 @@ class SimulationRun(Base):
     )
     coulomb_method: Mapped[CoulombType | None] = mapped_column(
         Enum(CoulombType, name="coulomb_type"), index=True
+    )
+    atom_style: Mapped[LammpsAtomStyle | None] = mapped_column(
+        Enum(LammpsAtomStyle, name="lammps_atom_style", values_callable=lambda x: [e.value for e in x]), index=True
     )
 
     # Thermodynamic State Points
@@ -83,6 +99,14 @@ class SimulationRun(Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     slurm_job_id: Mapped[str | None] = mapped_column(String(100))
     compute_node: Mapped[str | None] = mapped_column(String(255))
+
+    # Data Completeness Tracking
+    completeness_score: Mapped[int | None] = mapped_column(Integer, index=True)
+    missing_data: Mapped[dict | None] = mapped_column(JSONB)
+    data_quality_flags: Mapped[dict | None] = mapped_column(JSONB)
+
+    # LAMMPS Atom Type Mapping (for visualization)
+    atom_type_mapping: Mapped[dict | None] = mapped_column(JSONB)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -126,4 +150,8 @@ class SimulationRun(Base):
         CheckConstraint("pressure_target IS NULL OR pressure_target >= 0"),
         CheckConstraint("timestep IS NULL OR timestep > 0"),
         CheckConstraint("n_steps IS NULL OR n_steps > 0"),
+        CheckConstraint(
+            "completeness_score IS NULL OR (completeness_score >= 0 AND completeness_score <= 100)",
+            name="valid_completeness_score",
+        ),
     )

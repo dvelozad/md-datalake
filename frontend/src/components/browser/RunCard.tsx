@@ -9,6 +9,7 @@ import {
   CardActionArea,
 } from '@mui/material';
 import type { SimulationRun } from '@/types/visualization';
+import { CompletenessIndicator } from '@/components/completeness/CompletenessIndicator';
 
 interface RunCardProps {
   run: SimulationRun;
@@ -55,7 +56,29 @@ export const RunCard: React.FC<RunCardProps> = ({ run, onClick, thumbnailUrl }) 
 
           <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
             <Chip label={run.ensemble} size="small" color="primary" />
+            {run.simulation_method && (
+              <Chip
+                label={run.simulation_method === 'H_ADRESS' ? 'H-AdResS' : run.simulation_method}
+                size="small"
+                color="error"
+              />
+            )}
+            {run.simulation_method === 'H_ADRESS' && run.particle_insertion !== null && run.particle_insertion !== undefined && (
+              <Chip
+                label={run.particle_insertion ? 'PI' : 'Non-PI'}
+                size="small"
+                color="warning"
+                variant="outlined"
+              />
+            )}
             <Chip label={run.engine.name} size="small" variant="outlined" />
+            {run.completeness_score !== undefined && run.completeness_score !== null && (
+              <CompletenessIndicator
+                score={run.completeness_score}
+                variant="compact"
+                missingDataCount={run.missing_data?.length || 0}
+              />
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>

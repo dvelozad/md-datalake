@@ -102,17 +102,21 @@ class PreviewExtractionService:
                 output_format = self.config.preview_format
                 output_path = temp_dir / f"preview_{artifact.id}.{output_format}"
 
-                # Get engine name from simulation run
+                # Get engine name, atom_style, and atom_type_mapping from simulation run
                 await self.db.refresh(artifact, ["simulation_run"])
                 await self.db.refresh(artifact.simulation_run, ["engine"])
                 engine_name = artifact.simulation_run.engine.name
+                atom_style = artifact.simulation_run.atom_style.value if artifact.simulation_run.atom_style else None
+                atom_type_mapping = artifact.simulation_run.atom_type_mapping
 
                 await self._extract_frames(
                     trajectory_path,
                     topology_path,
                     output_path,
                     engine_name=engine_name,
-                    frame_count=self.config.preview_frame_count
+                    frame_count=self.config.preview_frame_count,
+                    atom_style=atom_style,
+                    atom_type_mapping=atom_type_mapping
                 )
 
                 # Upload preview to storage
@@ -144,13 +148,42 @@ class PreviewExtractionService:
             await self.db.commit()
             return False
 
+    def _convert_atom_style_to_mda_format(self, atom_style: str) -> str:
+        """
+        Convert LAMMPS atom style name to MDAnalysis column specification.
+
+        Args:
+            atom_style: LAMMPS atom style name (e.g., "full", "full/gc/HAdResS")
+
+        Returns:
+            MDAnalysis column specification string
+        """
+        # Mapping of LAMMPS atom styles to MDAnalysis column specs
+        atom_style_map = {
+            "atomic": "id type x y z",
+            "bond": "id mol type x y z",
+            "angle": "id mol type x y z",
+            "molecular": "id mol type x y z",
+            "full": "id mol type q x y z",
+            "charge": "id type q x y z",
+            "dipole": "id type q x y z mux muy muz",
+            "sphere": "id type diameter density x y z",
+            "ellipsoid": "id type ellipsoidflag density x y z",
+            # H-AdResS custom format
+            "full/gc/HAdResS": "id mol type q replambdaH moltypeH reservoirH x y z",
+        }
+
+        return atom_style_map.get(atom_style, "id type x y z")
+
     async def _extract_frames(
         self,
         trajectory_path: Path,
         topology_path: Path,
         output_path: Path,
         engine_name: str,
-        frame_count: int
+        frame_count: int,
+        atom_style: str | None = None,
+        atom_type_mapping: dict | None = None
     ) -> None:
         """
         Extract first N frames using MDAnalysis.
@@ -161,6 +194,8 @@ class PreviewExtractionService:
             output_path: Path to output preview file
             engine_name: Engine name (LAMMPS, GROMACS, etc.)
             frame_count: Number of frames to extract
+            atom_style: LAMMPS atom style (optional, for custom formats)
+            atom_type_mapping: Atom type to element/name mapping (optional)
         """
         import MDAnalysis as mda
 
@@ -168,22 +203,29 @@ class PreviewExtractionService:
         engine_upper = engine_name.upper()
 
         if engine_upper == "LAMMPS":
+            # Convert atom style to MDAnalysis format
+            if atom_style:
+                lammps_atom_style = self._convert_atom_style_to_mda_format(atom_style)
+            else:
+                lammps_atom_style = "id type x y z"
+
             # LAMMPS-specific loading
             if topology_path.suffix.lower() == '.pdb':
                 universe = mda.Universe(
                     str(topology_path),
                     str(trajectory_path),
                     format="LAMMPSDUMP",
-                    atom_style="id type x y z"
+                    atom_style=lammps_atom_style
                 )
             else:
                 # LAMMPS data file as topology
+                # For DATA format, atom_style is used for reading the Atoms section
                 universe = mda.Universe(
                     str(topology_path),
                     str(trajectory_path),
                     topology_format="DATA",
                     format="LAMMPSDUMP",
-                    atom_style="id type x y z"
+                    atom_style=lammps_atom_style
                 )
         elif engine_upper == "GROMACS":
             # GROMACS-specific loading
@@ -191,6 +233,65 @@ class PreviewExtractionService:
         else:
             # Generic loading (try to auto-detect)
             universe = mda.Universe(str(topology_path), str(trajectory_path))
+
+        # Apply atom type mapping or guess element names from masses
+        # This is crucial for proper coloring in visualizers
+        try:
+            if atom_type_mapping and 'mappings' in atom_type_mapping:
+                # Use provided atom type mapping
+                logger.info("Applying atom type mapping from database")
+                from mddatalake.utils.atom_mapping import apply_atom_type_mapping
+
+                # Get atom types as strings
+                atom_types = [str(t) for t in universe.atoms.types]
+
+                try:
+                    apply_atom_type_mapping(universe, atom_types, atom_type_mapping)
+                    logger.info(f"Applied mapping for {len(set(atom_types))} unique atom types")
+                except Exception as map_error:
+                    logger.warning(f"Failed to apply atom type mapping: {map_error}. Falling back to mass-based guessing.")
+                    raise  # Trigger fallback
+
+            elif not hasattr(universe.atoms, 'elements') or (hasattr(universe.atoms, 'elements') and universe.atoms.elements[0] == 'X'):
+                # Fallback to mass-based guessing
+                if hasattr(universe.atoms, 'masses'):
+                    import numpy as np
+
+                    logger.info("No atom type mapping found, using mass-based element guessing")
+
+                    # Mass-based element guessing
+                    def guess_element_from_mass(mass):
+                        """Guess element from atomic mass."""
+                        mass_ranges = {
+                            (0.5, 1.5): 'H',
+                            (6.5, 7.5): 'Li',
+                            (9.5, 11.5): 'B',
+                            (11.5, 12.5): 'C',
+                            (13.5, 14.5): 'N',
+                            (15.5, 16.5): 'O',
+                            (18.5, 19.5): 'F',
+                            (22.5, 23.5): 'Na',
+                            (27.5, 28.5): 'Si',
+                            (30.5, 32.5): 'S',
+                            (34.5, 36.5): 'Cl',
+                        }
+                        for (low, high), element in mass_ranges.items():
+                            if low <= mass <= high:
+                                return element
+                        return 'X'  # Unknown
+
+                    # Apply guessing to all atoms
+                    elements = np.array([guess_element_from_mass(m) for m in universe.atoms.masses], dtype=object)
+                    universe.add_TopologyAttr('elements', elements)
+
+                    # Also set atom names to element symbols for proper coloring in NGL
+                    # NGL uses atom names for color scheme
+                    universe.add_TopologyAttr('names', elements.copy())
+
+                    unique_elements = set(elements) - {'X'}
+                    logger.info(f"Guessed elements from masses: {sorted(unique_elements)}")
+        except Exception as e:
+            logger.warning(f"Failed to apply atom mapping or guess elements: {e}")
 
         # Extract frames
         actual_frames = min(frame_count, len(universe.trajectory))

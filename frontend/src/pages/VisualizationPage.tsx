@@ -5,11 +5,9 @@ import {
   Box,
   Container,
   Grid,
-  AppBar,
-  Toolbar,
   Typography,
-  IconButton,
   Button,
+  Paper,
 } from '@mui/material';
 import { ArrowBack } from '@mui/icons-material';
 import { NGLViewerWrapper } from '@/components/visualization/NGLViewerWrapper';
@@ -83,29 +81,34 @@ export const VisualizationPage: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <AppBar position="static">
-        <Toolbar>
-          <IconButton
-            edge="start"
-            color="inherit"
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          px: 3,
+          py: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            startIcon={<ArrowBack />}
             onClick={() => navigate('/')}
-            sx={{ mr: 2 }}
+            variant="outlined"
           >
-            <ArrowBack />
-          </IconButton>
+            Back to Runs
+          </Button>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             {run?.run_name || 'Visualization'}
           </Typography>
           {run && (
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Typography variant="body2">
-                {run.ensemble} | {run.engine.name} {run.engine.version}
-              </Typography>
-            </Box>
+            <Typography variant="body2" color="text.secondary">
+              {run.ensemble} | {run.engine.name} {run.engine.version}
+            </Typography>
           )}
-        </Toolbar>
-      </AppBar>
+        </Box>
+      </Paper>
 
       <Container maxWidth="xl" sx={{ flexGrow: 1, py: 3, overflow: 'auto' }}>
         <Grid container spacing={3}>

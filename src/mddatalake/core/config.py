@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from mddatalake.core.enums import ValidationLevel
+
 
 class Settings(BaseSettings):
     """Application settings loaded from environment variables."""
@@ -16,7 +18,7 @@ class Settings(BaseSettings):
     )
 
     # Database
-    database_url: str = "postgresql+asyncpg://mdrepo:mdrepo_dev_password@localhost:5432/mdrepo"
+    database_url: str = "postgresql+asyncpg://mddatalake:devpassword@localhost:5433/mddatalake"
 
     # Storage Backend
     storage_backend: Literal["filesystem", "s3"] = "filesystem"
@@ -48,8 +50,18 @@ class Settings(BaseSettings):
     preview_cache_root: str = "/tmp/mdrepo/preview_cache"
     preview_frame_count: int = 1  # Extract first N frames
     preview_format: Literal["pdb", "dcd"] = "pdb"
-    preview_max_file_size_mb: int = 500  # Skip if trajectory > 500 MB
+    preview_max_file_size_mb: int = 1000  # Skip if trajectory > 1000 MB
     preview_async_extraction: bool = True  # True = async, False = inline
+
+    # Upload Validation Configuration
+    validation_mode: ValidationLevel = ValidationLevel.WARNING
+    allow_duplicate_trajectories: bool = False
+    allow_duplicate_topologies: bool = False
+    allow_duplicate_logs: bool = False
+    require_minimal_dataset: bool = False
+    max_files_per_upload: int = 50
+    max_total_upload_size_gb: int = 50
+    max_file_size_mb: int = 5000  # 5GB per file
 
 
 settings = Settings()

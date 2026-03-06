@@ -41,9 +41,11 @@ export interface CompletenessInfo {
 export interface SimulationRun {
   id: number;
   run_name: string;
+  description?: string;
   ensemble: string;
   simulation_method?: string | null;
   particle_insertion?: boolean | null;
+  atom_style?: string | null;
   temperature_target?: number;
   pressure_target?: number;
   timestep: number;
@@ -72,7 +74,7 @@ export interface Artifact {
   file_path: string;
   original_path: string;
   checksum_sha256: string;
-  size_bytes: number;
+  file_size_bytes: number;
   frame_count?: number;
   output_frequency?: number;
   trajectory_metadata?: {
@@ -95,6 +97,7 @@ export interface Observable {
 
 export interface RunFilters {
   project_id?: number;
+  project_name?: string;
   ensemble?: string;
   min_temperature?: number;
   max_temperature?: number;
@@ -107,6 +110,7 @@ export interface RunFilters {
   max_completeness?: number;
   has_trajectory?: boolean;
   has_topology?: boolean;
+  search?: string;
   limit?: number;
   offset?: number;
 }
@@ -151,6 +155,16 @@ export interface UploadMetadata {
   projectName: string;
   runName: string;
   description?: string;
+  atomStyle?: string;  // LAMMPS atom style (required for LAMMPS trajectories)
+  simulationMethod?: string;  // Simulation method (ATOMISTIC, H_ADRESS)
+  ensemble?: string;  // Ensemble type (NVE, NVT, NPT, etc.)
+  temperatureTarget?: number;  // Target temperature in Kelvin
+  pressureTarget?: number;  // Target pressure in atmospheres
+}
+
+export interface ValidationInfo {
+  warnings: string[];
+  recommendations: string[];
 }
 
 export interface UploadResponse {
@@ -160,4 +174,23 @@ export interface UploadResponse {
   files_count?: number;
   total_size_mb?: number;
   engine?: string;
+  validation?: ValidationInfo;
+}
+
+export interface UpdateRunRequest {
+  run_name?: string;
+  description?: string;
+}
+
+export interface UpdateRunResponse {
+  id: number;
+  run_name: string;
+  description: string;
+  message: string;
+}
+
+export interface DeleteRunResponse {
+  id: number;
+  status: string;
+  message: string;
 }
