@@ -24,6 +24,7 @@ import {
   Assessment,
   Settings,
   Clear,
+  Computer,
 } from '@mui/icons-material';
 import type { RunFilters } from '@/types/visualization';
 
@@ -41,6 +42,7 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChan
     simulation: true,
     composition: false,
     quality: true,
+    hpc: false,
     display: false,
   });
 
@@ -78,12 +80,15 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChan
       filters.has_topology,
     ].filter(Boolean).length;
 
+    const hpcCount = filters.slurm_job_id ? 1 : 0;
+
     const displayOptionsCount = filters.limit && filters.limit !== 20 ? 1 : 0;
 
     return {
       simulation: simulationCount,
       composition: compositionCount,
       quality: dataQualityCount,
+      hpc: hpcCount,
       display: displayOptionsCount,
     };
   }, [filters]);
@@ -463,6 +468,59 @@ export const FilterPanel: React.FC<FilterPanelProps> = ({ filters, onFiltersChan
                 sx={{ ml: 0 }}
               />
             </Stack>
+          </AccordionDetails>
+        </Accordion>
+
+        {/* HPC / SLURM Accordion */}
+        <Accordion
+          expanded={expanded.hpc}
+          onChange={handleAccordionChange('hpc')}
+          disableGutters
+          elevation={0}
+          sx={{
+            backgroundColor:
+              filterCounts.hpc > 0 ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+            borderLeft: filterCounts.hpc > 0 ? '3px solid' : 'none',
+            borderLeftColor: 'primary.main',
+            borderRadius: 1,
+            transition: 'all 0.2s ease',
+            '&:before': { display: 'none' },
+            '&:hover': {
+              backgroundColor:
+                filterCounts.hpc > 0 ? 'rgba(25, 118, 210, 0.12)' : 'action.hover',
+            },
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMore />}
+            sx={{
+              minHeight: 48,
+              '& .MuiAccordionSummary-content': {
+                alignItems: 'center',
+                my: 1,
+              },
+            }}
+          >
+            <Computer sx={{ mr: 1.5, fontSize: 20, color: 'primary.main' }} />
+            <Typography sx={{ fontWeight: 500, fontSize: '0.9rem' }}>HPC / SLURM</Typography>
+            {filterCounts.hpc > 0 && (
+              <Badge
+                badgeContent={filterCounts.hpc}
+                color="primary"
+                sx={{ ml: 'auto', mr: 2, '& .MuiBadge-badge': { fontWeight: 600 } }}
+              />
+            )}
+          </AccordionSummary>
+          <AccordionDetails sx={{ pt: 0, pb: 2 }}>
+            <TextField
+              label="SLURM Job ID"
+              size="small"
+              fullWidth
+              value={filters.slurm_job_id || ''}
+              onChange={(e) => handleChange('slurm_job_id', e.target.value)}
+              placeholder="e.g. 12345678"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
           </AccordionDetails>
         </Accordion>
 

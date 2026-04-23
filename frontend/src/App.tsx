@@ -4,12 +4,19 @@ import { ThemeProvider, CssBaseline } from '@mui/material';
 import { RunBrowserFixed } from '@/components/browser/RunBrowserFixed';
 import { VisualizationPage } from '@/pages/VisualizationPage';
 import { RunDetailPage } from '@/pages/RunDetailPage';
+import { ProjectsPage } from '@/pages/ProjectsPage';
+import { ProjectDetailPage } from '@/pages/ProjectDetailPage';
 import { UploadPage } from '@/pages/UploadPage';
 import { ToolsPage } from '@/pages/ToolsPage';
 import { WikiPage } from '@/pages/WikiPage';
 import { AboutPage } from '@/pages/AboutPage';
+import { LoginPage } from '@/pages/LoginPage';
+import { UserManagementPage } from '@/pages/admin/UserManagementPage';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ThemeContextProvider, useThemeContext } from '@/contexts/ThemeContext';
+import { AuthContextProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
+import { AdminRoute } from '@/components/auth/AdminRoute';
 import { lightTheme, darkTheme } from '@/theme';
 
 const queryClient = new QueryClient({
@@ -35,18 +42,30 @@ function AppContent() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <BrowserRouter>
-          <AppLayout>
-            <Routes>
-              <Route path="/" element={<RunBrowserFixed onRunSelect={handleRunSelect} />} />
-              <Route path="/upload" element={<UploadPage />} />
-              <Route path="/runs/:runId" element={<RunDetailPage />} />
-              <Route path="/runs/:runId/trajectory" element={<VisualizationPage />} />
-              <Route path="/tools" element={<ToolsPage />} />
-              <Route path="/wiki" element={<WikiPage />} />
-              <Route path="/about" element={<AboutPage />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </AppLayout>
+          <Routes>
+            {/* Public route */}
+            <Route path="/login" element={<LoginPage />} />
+            {/* Protected routes */}
+            <Route path="/*" element={
+              <ProtectedRoute>
+                <AppLayout>
+                  <Routes>
+                    <Route path="/" element={<RunBrowserFixed onRunSelect={handleRunSelect} />} />
+                    <Route path="/projects" element={<ProjectsPage />} />
+                    <Route path="/projects/:projectId" element={<ProjectDetailPage />} />
+                    <Route path="/upload" element={<UploadPage />} />
+                    <Route path="/runs/:runId" element={<RunDetailPage />} />
+                    <Route path="/runs/:runId/trajectory" element={<VisualizationPage />} />
+                    <Route path="/tools" element={<ToolsPage />} />
+                    <Route path="/wiki" element={<WikiPage />} />
+                    <Route path="/about" element={<AboutPage />} />
+                    <Route path="/admin/users" element={<AdminRoute><UserManagementPage /></AdminRoute>} />
+                    <Route path="*" element={<Navigate to="/" replace />} />
+                  </Routes>
+                </AppLayout>
+              </ProtectedRoute>
+            } />
+          </Routes>
         </BrowserRouter>
       </ThemeProvider>
     </QueryClientProvider>
@@ -56,7 +75,9 @@ function AppContent() {
 function App() {
   return (
     <ThemeContextProvider>
-      <AppContent />
+      <AuthContextProvider>
+        <AppContent />
+      </AuthContextProvider>
     </ThemeContextProvider>
   );
 }

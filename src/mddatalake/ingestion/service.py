@@ -54,6 +54,8 @@ class IngestionService:
         temperature_target: float | None = None,  # Optional temperature target override
         pressure_target: float | None = None,  # Optional pressure target override
         user_artifact_types: dict[str, str] | None = None,  # User-provided artifact type overrides
+        slurm_job_id: str | None = None,
+        compute_node: str | None = None,
     ) -> int:
         """
         Ingest a simulation directory (5-stage pipeline).
@@ -160,6 +162,8 @@ class IngestionService:
                 working_directory=str(directory),
                 metadata=metadata,
                 artifacts_data=artifacts_data,
+                slurm_job_id=slurm_job_id,
+                compute_node=compute_node,
             )
 
             # Create ingestion marker
@@ -236,6 +240,8 @@ class IngestionService:
         metadata: dict[str, Any],
         artifacts_data: list[dict[str, Any]],
         description: str | None = None,
+        slurm_job_id: str | None = None,
+        compute_node: str | None = None,
     ) -> int:
         """Stage 4: Create database records in a transaction."""
         # Find or create project
@@ -306,6 +312,8 @@ class IngestionService:
             cutoff_vdw=metadata.get("cutoff_vdw"),
             exit_code=metadata.get("exit_code"),
             error_message=metadata.get("error_message"),
+            slurm_job_id=slurm_job_id,
+            compute_node=compute_node,
             # Data completeness fields
             completeness_score=completeness_info.score,
             missing_data=completeness_info.missing_data,

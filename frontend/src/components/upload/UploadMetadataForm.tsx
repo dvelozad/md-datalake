@@ -1,5 +1,5 @@
 import React from 'react';
-import { TextField, Stack, FormControl, InputLabel, Select, MenuItem, FormHelperText, Alert } from '@mui/material';
+import { TextField, Stack, Typography, FormControl, InputLabel, Select, MenuItem, FormHelperText, Alert } from '@mui/material';
 import type { UploadMetadata } from '@/types/visualization';
 
 interface UploadMetadataFormProps {
@@ -188,6 +188,31 @@ export const UploadMetadataForm: React.FC<UploadMetadataFormProps> = ({
           </FormControl>
         </>
       )}
+
+      {/* HPC / SLURM (optional) */}
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>
+        HPC / SLURM (Optional)
+      </Typography>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+        <TextField
+          label="SLURM Job ID"
+          fullWidth
+          disabled={disabled}
+          value={metadata.slurmJobId || ''}
+          onChange={(e) => onChange({ ...metadata, slurmJobId: e.target.value || undefined })}
+          helperText="e.g. 12345678"
+          size="small"
+        />
+        <TextField
+          label="Compute Node"
+          fullWidth
+          disabled={disabled}
+          value={metadata.computeNode || ''}
+          onChange={(e) => onChange({ ...metadata, computeNode: e.target.value || undefined })}
+          helperText="e.g. cn001"
+          size="small"
+        />
+      </Stack>
     </Stack>
   );
 };

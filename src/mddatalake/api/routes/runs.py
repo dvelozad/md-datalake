@@ -49,6 +49,7 @@ async def list_runs(
     max_completeness: float | None = Query(None),
     has_trajectory: bool | None = Query(None),
     has_topology: bool | None = Query(None),
+    slurm_job_id: str | None = Query(None),
     search: str | None = Query(None),
     limit: int = Query(100, le=1000),
     offset: int = Query(0, ge=0),
@@ -103,43 +104,32 @@ async def list_runs(
         stmt = stmt.where(Project.name.ilike(f"%{project_name}%"))
 
     if engine_name:
-        from mddatalake.db.models import MDEngine
+        from mddatalake.db.models import Engine
         stmt = stmt.join(SimulationRun.engine)
         engine_joined = True
-        stmt = stmt.where(MDEngine.name.ilike(f"%{engine_name}%"))
+        stmt = stmt.where(Engine.name.ilike(f"%{engine_name}%"))
 
     if composition:
-        from mddatalake.db.models import SystemDescription
+        from mddatalake.db.models import System
         stmt = stmt.join(SimulationRun.system)
         system_joined = True
         stmt = stmt.where(
-            SystemDescription.composition_description.ilike(f"%{composition}%")
+            System.composition_description.ilike(f"%{composition}%")
         )
 
     if search:
-        # Search across run_name, composition, and method
-        from mddatalake.db.models import SystemDescription
-        from sqlalchemy import or_
+        from mddatalake.db.models import System
+        from sqlalchemy import or_, String
 
-        # Only join if not already joined
         if not system_joined:
             stmt = stmt.outerjoin(SimulationRun.system)
+            system_joined = True
 
-        # Build search conditions
         search_conditions = [
             SimulationRun.run_name.ilike(f"%{search}%"),
+            System.composition_description.ilike(f"%{search}%"),
+            SimulationRun.simulation_method.cast(String).ilike(f"%{search}%"),
         ]
-
-        # Add composition search (only if system is available)
-        search_conditions.append(
-            SystemDescription.composition_description.ilike(f"%{search}%")
-        )
-
-        # Add simulation_method search (handle NULL values properly)
-        search_conditions.append(
-            SimulationRun.simulation_method.ilike(f"%{search}%")
-        )
-
         stmt = stmt.where(or_(*search_conditions))
 
     if has_trajectory is not None:
@@ -147,6 +137,9 @@ async def list_runs(
 
     if has_topology is not None:
         stmt = stmt.where(SimulationRun.data_quality_flags['has_topology'].as_boolean() == has_topology)
+
+    if slurm_job_id:
+        stmt = stmt.where(SimulationRun.slurm_job_id == slurm_job_id)
 
     # Add eager loading for relationships
     # Use contains_eager for joined relationships, selectinload for others
@@ -209,6 +202,9 @@ async def list_runs(
                 "completeness_score": run.completeness_score,
                 "missing_data": run.missing_data,
                 "data_quality_flags": run.data_quality_flags,
+                # HPC fields
+                "slurm_job_id": run.slurm_job_id,
+                "compute_node": run.compute_node,
             }
         )
 
@@ -255,6 +251,8 @@ async def get_run(run_id: int, db: AsyncSession = Depends(get_db)) -> dict[str, 
         "cutoff_vdw": run.cutoff_vdw,
         "exit_code": run.exit_code,
         "error_message": run.error_message,
+        "slurm_job_id": run.slurm_job_id,
+        "compute_node": run.compute_node,
         "engine": {
             "name": run.engine.name if run.engine else "Unknown",
             "version": run.engine.version if run.engine else "unknown",

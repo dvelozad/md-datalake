@@ -75,6 +75,44 @@ def query(
     )
 
 
+# User management commands
+users_app = typer.Typer(help="User management commands")
+app.add_typer(users_app, name="users")
+
+
+@users_app.command("create-admin")
+def create_admin(
+    email: str = typer.Option(..., "--email", "-e", prompt=True, help="Admin email"),
+    password: str = typer.Option(
+        ..., "--password", "-p", prompt=True, hide_input=True, confirmation_prompt=True, help="Admin password"
+    ),
+    full_name: str = typer.Option(None, "--name", "-n", help="Full name"),
+):
+    """Create the initial admin user account."""
+    async def _run():
+        from sqlalchemy import select
+        from mddatalake.auth.security import hash_password
+        from mddatalake.db.models.user import User
+        from mddatalake.db.session import AsyncSessionLocal
+
+        async with AsyncSessionLocal() as db:
+            existing = await db.execute(select(User).where(User.email == email))
+            if existing.scalar_one_or_none():
+                console.print(f"[red]Error:[/red] User with email {email!r} already exists.")
+                raise typer.Exit(1)
+            user = User(
+                email=email,
+                full_name=full_name,
+                role="admin",
+                hashed_password=hash_password(password),
+            )
+            db.add(user)
+            await db.commit()
+            console.print(f"[green]Admin user created:[/green] {email}")
+
+    asyncio.run(_run())
+
+
 # Storage management commands
 storage_app = typer.Typer(help="Storage management commands")
 app.add_typer(storage_app, name="storage")

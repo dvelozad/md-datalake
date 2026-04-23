@@ -20,6 +20,11 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "postgresql+asyncpg://mddatalake:devpassword@localhost:5433/mddatalake"
 
+    # JWT Authentication
+    jwt_secret_key: str = "CHANGE-ME-IN-PRODUCTION-USE-A-LONG-RANDOM-STRING"
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 480  # 8 hours
+
     # Storage Backend
     storage_backend: Literal["filesystem", "s3"] = "filesystem"
     storage_root: str = "/tmp/mdrepo/artifacts"

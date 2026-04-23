@@ -188,6 +188,7 @@ export const RunTable: React.FC<RunTableProps> = ({
     <MaterialReactTable
       columns={columns}
       data={runs}
+      defaultColumn={{ grow: true }}
       enableExpanding
       renderDetailPanel={({ row }) => (
         <div ref={(el) => { expandedRowRefs.current[row.id] = el; }}>
@@ -287,7 +288,7 @@ export const RunTable: React.FC<RunTableProps> = ({
       muiTableProps={{
         sx: {
           width: '100%',
-          tableLayout: 'fixed', // Fixed layout for grid mode
+          tableLayout: 'auto',
         },
       }}
       muiTableHeadCellProps={{
@@ -475,10 +476,11 @@ export const RunTable: React.FC<RunTableProps> = ({
       enableTopToolbar={false}
       manualFiltering={false} // Use client-side filtering for now
       enableMultiSort={false} // Only one column at a time
-      layoutMode="grid" // Makes columns adapt to available horizontal space
+      layoutMode="semantic"
       displayColumnDefOptions={{
         'mrt-row-expand': {
           size: 0,
+          grow: false,
           muiTableHeadCellProps: { sx: { display: 'none' } },
           muiTableBodyCellProps: { sx: { display: 'none' } },
         },

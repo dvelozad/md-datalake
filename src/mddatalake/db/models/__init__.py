@@ -10,10 +10,13 @@ from mddatalake.db.models.project import Project
 from mddatalake.db.models.simulation_run import SimulationRun
 from mddatalake.db.models.system import System
 from mddatalake.db.models.tag import Tag
+from mddatalake.db.models.project_collaborator import ProjectCollaborator
+from mddatalake.db.models.user import User
 from mddatalake.db.models.visualization_session import VisualizationSession
 
 __all__ = [
     "Project",
+    "ProjectCollaborator",
     "System",
     "ForceField",
     "Engine",
@@ -23,5 +26,6 @@ __all__ = [
     "Lineage",
     "Tag",
     "Comment",
+    "User",
     "VisualizationSession",
 ]

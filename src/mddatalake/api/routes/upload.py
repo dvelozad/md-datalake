@@ -118,6 +118,8 @@ async def upload_simulation(
     temperature_target: Annotated[float | None, Form()] = None,  # Target temperature in Kelvin
     pressure_target: Annotated[float | None, Form()] = None,  # Target pressure in atmospheres
     artifact_types: Annotated[str | None, Form()] = None,  # JSON mapping of filename -> artifact_type
+    slurm_job_id: Annotated[str | None, Form()] = None,
+    compute_node: Annotated[str | None, Form()] = None,
     # Files
     files: Annotated[list[UploadFile], File()] = [],
     # Database session
@@ -258,6 +260,8 @@ async def upload_simulation(
             temperature_target=temperature_target,
             pressure_target=pressure_target,
             user_artifact_types=user_artifact_types if user_artifact_types else None,
+            slurm_job_id=slurm_job_id,
+            compute_node=compute_node,
         )
 
         # Format size for response

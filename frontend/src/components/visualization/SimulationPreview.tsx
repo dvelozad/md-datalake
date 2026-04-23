@@ -77,7 +77,10 @@ export const SimulationPreview: React.FC<SimulationPreviewProps> = ({
                 setStatus('Requesting preview...');
 
                 const fetchPreview = async (): Promise<Blob | null> => {
-                    const response = await fetch(`/api/v1/visualizations/runs/${runId}/preview`);
+                    const token = localStorage.getItem('mddatalake_token');
+                    const response = await fetch(`/api/v1/visualizations/runs/${runId}/preview`, {
+                        headers: token ? { Authorization: `Bearer ${token}` } : {},
+                    });
 
                     if (response.status === 202) {
                         if (retryCount < MAX_RETRIES) {

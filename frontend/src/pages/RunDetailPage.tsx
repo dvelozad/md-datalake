@@ -309,6 +309,27 @@ export const RunDetailPage: React.FC = () => {
               </Box>
             </Grid>
 
+            {/* HPC / SLURM Information */}
+            {(run.slurm_job_id || run.compute_node) && (
+              <Grid item xs={12} md={6}>
+                <Typography variant="h6" gutterBottom>
+                  HPC / SLURM
+                </Typography>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {run.slurm_job_id && (
+                    <Typography variant="body2">
+                      <strong>SLURM Job ID:</strong> {run.slurm_job_id}
+                    </Typography>
+                  )}
+                  {run.compute_node && (
+                    <Typography variant="body2">
+                      <strong>Compute Node:</strong> {run.compute_node}
+                    </Typography>
+                  )}
+                </Box>
+              </Grid>
+            )}
+
             {/* Log File Metadata */}
             <Grid item xs={12}>
               <LogMetadata runId={parseInt(runId || '0')} onUpdate={handleMetadataUpdate} />

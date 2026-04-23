@@ -19,6 +19,7 @@ import { Menu as MenuIcon, Close as CloseIcon, Refresh, CloudUpload } from '@mui
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Logo } from './Logo';
 import { ThemeToggle } from '../ThemeToggle';
+import { UserMenu } from '../auth/UserMenu';
 import { useThemeContext } from '../../contexts/ThemeContext';
 
 interface NavButtonProps {
@@ -74,6 +75,7 @@ export const Navigation: React.FC = () => {
 
   const navItems = [
     { to: '/', label: 'Datalake' },
+    { to: '/projects', label: 'Projects' },
     { to: '/tools', label: 'Tools' },
     { to: '/wiki', label: 'Wiki/Docs' },
     { to: '/about', label: 'About' },
@@ -103,6 +105,7 @@ export const Navigation: React.FC = () => {
           <>
             <Box sx={{ flexGrow: 1 }} />
             <ThemeToggle mode={mode} onToggle={toggleTheme} />
+            <UserMenu />
             <IconButton
               color="inherit"
               aria-label="open drawer"
@@ -175,6 +178,7 @@ export const Navigation: React.FC = () => {
               Upload
             </Button>
             <ThemeToggle mode={mode} onToggle={toggleTheme} />
+            <UserMenu />
           </>
         )}
       </Toolbar>

@@ -10,6 +10,8 @@ import type {
   CompletenessInfo,
   UploadResponse,
   UploadMetadata,
+  Project,
+  ProjectCreate,
 } from '@/types/visualization';
 
 class APIClient {
@@ -23,6 +25,25 @@ class APIClient {
         'Content-Type': 'application/json',
       },
     });
+
+    // Forward the global Authorization header set by AuthContext
+    this.client.interceptors.request.use((config) => {
+      const token = localStorage.getItem('mddatalake_token');
+      if (token) config.headers['Authorization'] = `Bearer ${token}`;
+      return config;
+    });
+
+    // Redirect to /login on 401
+    this.client.interceptors.response.use(
+      (response) => response,
+      (error) => {
+        if (error?.response?.status === 401) {
+          localStorage.removeItem('mddatalake_token');
+          window.location.href = '/login';
+        }
+        return Promise.reject(error);
+      }
+    );
   }
 
   // Health check
@@ -189,6 +210,13 @@ class APIClient {
       formData.append('pressure_target', metadata.pressureTarget.toString());
     }
 
+    if (metadata.slurmJobId) {
+      formData.append('slurm_job_id', metadata.slurmJobId);
+    }
+    if (metadata.computeNode) {
+      formData.append('compute_node', metadata.computeNode);
+    }
+
     // Send artifact types as JSON if any are manually set
     if (Object.keys(artifactTypes).length > 0) {
       formData.append('artifact_types', JSON.stringify(artifactTypes));
@@ -284,6 +312,39 @@ class APIClient {
   }> {
     const response = await this.client.post(`/runs/${runId}/update-from-log`);
     return response.data;
+  }
+
+  // Projects
+  async listProjects(params?: { search?: string; is_public?: boolean }): Promise<Project[]> {
+    const response = await this.client.get('/projects', { params });
+    return response.data;
+  }
+
+  async getProject(projectId: number): Promise<Project> {
+    const response = await this.client.get(`/projects/${projectId}`);
+    return response.data;
+  }
+
+  async createProject(data: ProjectCreate): Promise<Project> {
+    const response = await this.client.post('/projects', data);
+    return response.data;
+  }
+
+  async updateProject(projectId: number, data: Partial<ProjectCreate>): Promise<Project> {
+    const response = await this.client.patch(`/projects/${projectId}`, data);
+    return response.data;
+  }
+
+  async deleteProject(projectId: number): Promise<void> {
+    await this.client.delete(`/projects/${projectId}`);
+  }
+
+  async addCollaborator(projectId: number, userId: number, role: string = 'viewer'): Promise<void> {
+    await this.client.post(`/projects/${projectId}/collaborators`, { user_id: userId, role });
+  }
+
+  async removeCollaborator(projectId: number, userId: number): Promise<void> {
+    await this.client.delete(`/projects/${projectId}/collaborators/${userId}`);
   }
 
   // Upload additional artifacts to existing run

@@ -23,6 +23,7 @@ from mddatalake.db.models import (
     SimulationRun,
     System,
     Tag,
+    User,
 )
 
 # this is the Alembic Config object, which provides

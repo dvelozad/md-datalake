@@ -326,5 +326,6 @@ class PreviewExtractionService:
             select(Artifact)
             .where(Artifact.simulation_run_id == run_id)
             .where(Artifact.artifact_type == ArtifactType.TOPOLOGY)
+            .limit(1)
         )
         return result.scalar_one_or_none()

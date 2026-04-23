@@ -1,3 +1,39 @@
+export interface ProjectCollaborator {
+  user_id: number;
+  email: string;
+  full_name: string | null;
+  role: string;
+}
+
+export interface Project {
+  id: number;
+  name: string;
+  description: string | null;
+  pi_name: string | null;
+  institution: string | null;
+  grant_number: string | null;
+  funding_source: string | null;
+  keywords: string[];
+  is_public: boolean;
+  created_by_id: number | null;
+  created_by_name: string | null;
+  created_at: string;
+  updated_at: string | null;
+  run_count: number;
+  collaborators: ProjectCollaborator[];
+}
+
+export interface ProjectCreate {
+  name: string;
+  description?: string;
+  pi_name?: string;
+  institution?: string;
+  grant_number?: string;
+  funding_source?: string;
+  keywords?: string[];
+  is_public?: boolean;
+}
+
 export interface VisualizationSession {
   id: number;
   session_id: string;
@@ -64,6 +100,9 @@ export interface SimulationRun {
   completeness_score?: number | null;
   missing_data?: string[];
   data_quality_flags?: DataQualityFlags;
+  // HPC fields
+  slurm_job_id?: string | null;
+  compute_node?: string | null;
 }
 
 export interface Artifact {
@@ -110,6 +149,7 @@ export interface RunFilters {
   max_completeness?: number;
   has_trajectory?: boolean;
   has_topology?: boolean;
+  slurm_job_id?: string;
   search?: string;
   limit?: number;
   offset?: number;
@@ -160,6 +200,8 @@ export interface UploadMetadata {
   ensemble?: string;  // Ensemble type (NVE, NVT, NPT, etc.)
   temperatureTarget?: number;  // Target temperature in Kelvin
   pressureTarget?: number;  // Target pressure in atmospheres
+  slurmJobId?: string;
+  computeNode?: string;
 }
 
 export interface ValidationInfo {
