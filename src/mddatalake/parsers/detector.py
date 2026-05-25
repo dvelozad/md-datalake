@@ -29,6 +29,7 @@ def detect_engine(directory: Path | str) -> str:
         "data.*",
         "log.lammps",
         "*.dump",
+        "*.lammpstrj",
     ]
 
     for pattern in lammps_indicators:

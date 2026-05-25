@@ -30,7 +30,6 @@ interface NavButtonProps {
 
 const NavButton: React.FC<NavButtonProps> = ({ to, label, onClick }) => {
   const location = useLocation();
-  const theme = useTheme();
   const isActive = to === '/'
     ? location.pathname === '/'
     : location.pathname.startsWith(to);
@@ -41,20 +40,20 @@ const NavButton: React.FC<NavButtonProps> = ({ to, label, onClick }) => {
       to={to}
       onClick={onClick}
       sx={{
-        color: theme.palette.mode === 'dark'
-          ? (isActive ? 'primary.main' : 'inherit')
-          : 'white',
-        borderBottom: isActive ? 2 : 0,
-        borderColor: theme.palette.mode === 'dark' ? 'primary.main' : 'white',
+        color: isActive ? '#fff' : 'rgba(255,255,255,0.72)',
+        borderBottom: '2px solid',
+        borderColor: isActive ? '#1fb878' : 'transparent',
         borderRadius: 0,
-        px: 2,
-        py: 1,
+        px: 1.75,
+        py: '18px',
         textTransform: 'none',
-        fontWeight: isActive ? 600 : 400,
-        opacity: (theme.palette.mode === 'light' && !isActive) ? 0.85 : 1,
+        fontFamily: "'IBM Plex Sans', sans-serif",
+        fontSize: 13,
+        fontWeight: isActive ? 600 : 500,
+        minWidth: 'auto',
         '&:hover': {
-          backgroundColor: 'action.hover',
-          opacity: 1,
+          color: '#fff',
+          backgroundColor: 'rgba(255,255,255,0.04)',
         },
       }}
     >
@@ -77,7 +76,7 @@ export const Navigation: React.FC = () => {
     { to: '/', label: 'Datalake' },
     { to: '/projects', label: 'Projects' },
     { to: '/tools', label: 'Tools' },
-    { to: '/wiki', label: 'Wiki/Docs' },
+    { to: '/wiki', label: 'Wiki / Docs' },
     { to: '/about', label: 'About' },
   ];
 
@@ -92,13 +91,14 @@ export const Navigation: React.FC = () => {
   return (
     <AppBar
       position="sticky"
-      elevation={1}
+      elevation={0}
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        backgroundColor: theme.palette.mode === 'dark' ? 'background.paper' : 'primary.main',
+        backgroundColor: '#0d1117',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
       }}
     >
-      <Toolbar sx={{ gap: 2 }}>
+      <Toolbar sx={{ gap: 1.75, minHeight: '56px !important', height: 56, color: '#fff' }}>
         <Logo />
 
         {isMobile ? (
@@ -149,7 +149,7 @@ export const Navigation: React.FC = () => {
           </>
         ) : (
           <>
-            <Box sx={{ display: 'flex', gap: 1, flex: 1, ml: 2 }}>
+            <Box sx={{ display: 'flex', gap: '2px', flex: 1, ml: 1 }}>
               {navItems.map((item) => (
                 <NavButton key={item.to} to={item.to} label={item.label} />
               ))}
@@ -158,7 +158,7 @@ export const Navigation: React.FC = () => {
               <Tooltip title="Refresh runs">
                 <IconButton
                   onClick={() => window.location.reload()}
-                  color="inherit"
+                  sx={{ color: 'rgba(255,255,255,0.7)', '&:hover': { color: '#fff' } }}
                   size="medium"
                 >
                   <Refresh />
@@ -173,6 +173,13 @@ export const Navigation: React.FC = () => {
               sx={{
                 textTransform: 'none',
                 fontWeight: 600,
+                fontSize: 13,
+                backgroundColor: '#2f4ea8',
+                color: '#fff',
+                borderRadius: '5px',
+                '&:hover': {
+                  backgroundColor: '#233e8c',
+                },
               }}
             >
               Upload

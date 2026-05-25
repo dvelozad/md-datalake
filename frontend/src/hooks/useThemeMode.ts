@@ -18,9 +18,10 @@ export const useThemeMode = () => {
     return 'light';
   });
 
-  // Save to localStorage whenever mode changes
+  // Save to localStorage and sync CSS custom properties whenever mode changes
   useEffect(() => {
     localStorage.setItem('theme-mode', mode);
+    document.documentElement.setAttribute('data-theme', mode);
   }, [mode]);
 
   const toggleTheme = () => {
