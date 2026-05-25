@@ -11,10 +11,11 @@ import {
   InputAdornment,
 } from '@mui/material';
 import { FilterList, Close, Search, HelpOutline } from '@mui/icons-material';
-import { RunTable } from './RunTable';
+import { RunTable, type TableStyle } from './RunTable';
 import { FilterPanel } from './FilterPanel';
 import { apiClient } from '@/services/api';
 import type { RunFilters } from '@/types/visualization';
+import './RunTable.css';
 
 interface RunBrowserProps {
   onRunSelect: (runId: number) => void;
@@ -28,6 +29,7 @@ export const RunBrowserFixed: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
   const [filterOpen, setFilterOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [tableStyle, setTableStyle] = useState<TableStyle>('notebook');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['runs', filters],
@@ -261,6 +263,33 @@ export const RunBrowserFixed: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
             />
           </Paper>
 
+          {/* Meta bar: eyebrow + count on left, style switcher on right */}
+          <div className="rt-meta-bar">
+            <div className="rt-meta-bar__left">
+              <span className="t-eyebrow">Datalake</span>
+              <span className="rt-meta-bar__count">
+                <b>{data?.total ?? 0}</b> runs · <span className="t-numeric">{
+                  // Count unique ensembles from current page data
+                  new Set(data?.runs?.map(r => r.ensemble).filter(Boolean)).size
+                }</span> ensembles
+              </span>
+            </div>
+            <div className="rt-switcher">
+              <button
+                className={`rt-switcher__btn ${tableStyle === 'notebook' ? 'rt-switcher__btn--active' : ''}`}
+                onClick={() => setTableStyle('notebook')}
+              >
+                Notebook
+              </button>
+              <button
+                className={`rt-switcher__btn ${tableStyle === 'editorial' ? 'rt-switcher__btn--active' : ''}`}
+                onClick={() => setTableStyle('editorial')}
+              >
+                Editorial
+              </button>
+            </div>
+          </div>
+
           {/* Error Message */}
           {error && (
             <Alert severity="error" sx={{ mb: 1.5, borderRadius: 0.5 }}>
@@ -301,6 +330,7 @@ export const RunBrowserFixed: React.FC<RunBrowserProps> = ({ onRunSelect }) => {
                 onPageChange={handlePageChange}
                 onPageSizeChange={handlePageSizeChange}
                 onRunSelect={onRunSelect}
+                tableStyle={tableStyle}
               />
             </Box>
           )}

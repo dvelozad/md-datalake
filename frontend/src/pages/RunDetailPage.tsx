@@ -1,28 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  Typography,
-  Box,
-  Tabs,
-  Tab,
-  CircularProgress,
-  Alert,
-  Grid,
-  Chip,
-  Button,
-  IconButton,
-  Tooltip,
-} from '@mui/material';
-import {
-  ArrowBack as ArrowBackIcon,
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  CloudUpload,
-  Download as DownloadIcon,
-  Archive as ArchiveIcon,
-} from '@mui/icons-material';
 import { apiClient } from '@/services/api';
 import { useCompleteness } from '@/hooks/useCompleteness';
 import { CompletenessCard } from '@/components/completeness/CompletenessCard';
@@ -33,36 +10,31 @@ import { UploadArtifactsDialog } from '@/components/artifacts/UploadArtifactsDia
 import { ObservablePlots } from '@/components/properties/ObservablePlots';
 import { LogMetadata } from '@/components/properties/LogMetadata';
 import type { SimulationRun, Artifact, Observable } from '@/types/visualization';
+import './RunDetailPage.css';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
-}
+const METHOD_COLORS: Record<string, string> = {
+  ATOMISTIC: '#2f4ea8',
+  H_ADRESS: '#7d3cc6',
+  COARSE_GRAINED: '#16936a',
+  UNITED_ATOM: '#c87005',
+  MONTE_CARLO: '#c44a85',
+};
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`run-tabpanel-${index}`}
-      aria-labelledby={`run-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
-    </div>
-  );
-}
+const METHOD_LABELS: Record<string, string> = {
+  ATOMISTIC: 'Atomistic',
+  H_ADRESS: 'H-AdResS',
+  COARSE_GRAINED: 'Coarse-Grained',
+  UNITED_ATOM: 'United Atom',
+  MONTE_CARLO: 'Monte Carlo',
+};
 
 export const RunDetailPage: React.FC = () => {
   const { runId } = useParams<{ runId: string }>();
   const navigate = useNavigate();
-  const [tabValue, setTabValue] = useState(0);
+  const [sectionTab, setSectionTab] = useState(0);
   const [run, setRun] = useState<SimulationRun | null>(null);
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
-  const [observables, setObservables] = useState<Observable[]>([]);
+  const [_observables, setObservables] = useState<Observable[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -100,16 +72,11 @@ export const RunDetailPage: React.FC = () => {
     fetchRunData();
   }, [runId]);
 
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
-  };
-
   const handleEditSave = async (data: { run_name: string; description?: string }) => {
     if (!runId) return;
 
     const result = await apiClient.updateRun(parseInt(runId), data);
 
-    // Update local state
     setRun((prev) => {
       if (!prev) return prev;
       return {
@@ -124,13 +91,10 @@ export const RunDetailPage: React.FC = () => {
     if (!runId) return;
 
     await apiClient.deleteRun(parseInt(runId));
-
-    // Navigate back to browser after successful deletion
     navigate('/');
   };
 
   const handleMetadataUpdate = async () => {
-    // Reload run data after metadata update
     if (!runId) return;
 
     try {
@@ -165,277 +129,287 @@ export const RunDetailPage: React.FC = () => {
 
   if (loading) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4, textAlign: 'center' }}>
-        <CircularProgress />
-        <Typography sx={{ mt: 2 }}>Loading run data...</Typography>
-      </Container>
+      <div className="rdp">
+        <div className="rdp-loading">
+          <div className="rdp-loading__spinner" />
+          Loading run data...
+        </div>
+      </div>
     );
   }
 
   if (error || !run) {
     return (
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Alert severity="error">{error || 'Run not found'}</Alert>
-        <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mt: 2 }}>
-          Back to Browser
-        </Button>
-      </Container>
+      <div className="rdp">
+        <div className="rdp-error">
+          <div className="rdp-error__msg">{error || 'Run not found'}</div>
+          <button className="rdp-topbar__back" onClick={() => navigate('/')}>
+            <ArrowLeftIcon /> Back to runs
+          </button>
+        </div>
+      </div>
     );
   }
 
+  const method = run.simulation_method || 'ATOMISTIC';
+  const methodColor = METHOD_COLORS[method] || METHOD_COLORS.ATOMISTIC;
+  const methodLabel = METHOD_LABELS[method] || method;
+  const score = run.completeness_score || 0;
+  const qualityColor = score >= 80 ? 'green' : score >= 50 ? 'orange' : 'red';
+
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Button startIcon={<ArrowBackIcon />} onClick={() => navigate('/')} sx={{ mb: 2 }}>
-        Back to Browser
-      </Button>
+    <div className="rdp">
+      {/* Top bar */}
+      <div className="rdp-topbar">
+        <button className="rdp-topbar__back" onClick={() => navigate('/')}>
+          <ArrowLeftIcon /> Back to runs
+        </button>
 
-      <Paper sx={{ p: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Typography variant="h4">
-            {run.run_name}
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            <Button
-              startIcon={<EditIcon />}
-              variant="outlined"
-              onClick={() => setEditDialogOpen(true)}
-            >
-              Edit
-            </Button>
-            <Button
-              startIcon={<DeleteIcon />}
-              variant="outlined"
-              color="error"
-              onClick={() => setDeleteDialogOpen(true)}
-            >
-              Delete
-            </Button>
-          </Box>
-        </Box>
+        <div className="rdp-topbar__breadcrumb">
+          runs / <span>{run.run_name}</span>
+        </div>
 
-        {run.description && (
-          <Typography variant="body2" color="text.secondary" gutterBottom>
-            {run.description}
-          </Typography>
-        )}
+        <div className="rdp-topbar__actions">
+          <button className="rdp-topbar__btn" onClick={handleDownloadAll}>
+            <DownloadIcon /> Download
+          </button>
+          <button className="rdp-topbar__btn" onClick={() => setEditDialogOpen(true)}>
+            <EditIcon /> Edit
+          </button>
+          <button
+            className="rdp-topbar__btn rdp-topbar__btn--danger"
+            onClick={() => setDeleteDialogOpen(true)}
+          >
+            <TrashIcon /> Delete
+          </button>
+        </div>
+      </div>
 
-        <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
-          <Tabs value={tabValue} onChange={handleTabChange} aria-label="run detail tabs">
-            <Tab label="Overview" id="run-tab-0" aria-controls="run-tabpanel-0" />
-            <Tab label="Data Quality" id="run-tab-1" aria-controls="run-tabpanel-1" />
-            <Tab label="Artifacts" id="run-tab-2" aria-controls="run-tabpanel-2" />
-            <Tab label="Observables" id="run-tab-3" aria-controls="run-tabpanel-3" />
-          </Tabs>
-        </Box>
+      {/* Two-column grid */}
+      <div className="rdp-grid">
+        {/* Left: Viewer card */}
+        <div className="rdp-card">
+          <div className="rdp-viewer">
+            <div className="rdp-viewer__stage">
+              <div className="rdp-viewer__pattern" />
+              <SimulationPreview
+                runId={parseInt(runId || '0')}
+                height={400}
+                totalTime={run.total_time}
+              />
+            </div>
+          </div>
+        </div>
 
-        <TabPanel value={tabValue} index={0}>
-          <Grid container spacing={3}>
-            {/* Simulation Preview */}
-            <Grid item xs={12}>
-              <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-                <SimulationPreview
-                  runId={parseInt(runId || '0')}
-                  height={500}
-                  totalTime={run.total_time}
+        {/* Right: Metadata card */}
+        <div className="rdp-card">
+          <div className="rdp-meta">
+            <div className="rdp-meta__eyebrow">Run metadata</div>
+            <h3 className="rdp-meta__name">{run.run_name}</h3>
+
+            {/* Tags */}
+            <div className="rdp-meta__tags">
+              <span className="rdp-meta__tag" style={{ background: methodColor }}>
+                {methodLabel}
+              </span>
+              <span className="rdp-meta__tag--outline rdp-meta__tag">
+                {run.engine.name}
+              </span>
+              <span className="rdp-meta__tag" style={{ background: 'var(--primary-500)' }}>
+                {run.ensemble}
+              </span>
+              {run.simulation_method === 'H_ADRESS' &&
+                run.particle_insertion !== null &&
+                run.particle_insertion !== undefined && (
+                  <span className="rdp-meta__tag" style={{ background: 'var(--signal-600)' }}>
+                    {run.particle_insertion ? 'PI' : 'Non-PI'}
+                  </span>
+                )}
+            </div>
+
+            {/* Key-value list */}
+            <div className="rdp-kvlist">
+              {run.temperature_target && (
+                <>
+                  <span className="rdp-kvlist__key">Temperature</span>
+                  <span className="rdp-kvlist__val">{run.temperature_target} K</span>
+                </>
+              )}
+              {run.pressure_target && (
+                <>
+                  <span className="rdp-kvlist__key">Pressure</span>
+                  <span className="rdp-kvlist__val">{run.pressure_target} bar</span>
+                </>
+              )}
+              <span className="rdp-kvlist__key">Atoms</span>
+              <span className="rdp-kvlist__val">{run.system.n_atoms.toLocaleString()}</span>
+
+              <span className="rdp-kvlist__key">Composition</span>
+              <span className="rdp-kvlist__val">{run.system.composition}</span>
+
+              {run.total_time && (
+                <>
+                  <span className="rdp-kvlist__key">Length</span>
+                  <span className="rdp-kvlist__val">{run.total_time.toFixed(2)} ns</span>
+                </>
+              )}
+
+              <span className="rdp-kvlist__key">Engine</span>
+              <span className="rdp-kvlist__val">{run.engine.name} {run.engine.version}</span>
+
+              <span className="rdp-kvlist__key">Uploaded</span>
+              <span className="rdp-kvlist__val">
+                {new Date(run.created_at).toLocaleDateString()}
+              </span>
+
+              {run.slurm_job_id && (
+                <>
+                  <span className="rdp-kvlist__key">SLURM Job</span>
+                  <span className="rdp-kvlist__val">{run.slurm_job_id}</span>
+                </>
+              )}
+              {run.compute_node && (
+                <>
+                  <span className="rdp-kvlist__key">Node</span>
+                  <span className="rdp-kvlist__val">{run.compute_node}</span>
+                </>
+              )}
+            </div>
+
+            {/* Completeness bar */}
+            <div className="rdp-completeness">
+              <div className="rdp-completeness__track">
+                <div
+                  className={`rdp-completeness__fill rdp-completeness__fill--${qualityColor}`}
+                  style={{ width: `${score}%` }}
                 />
-              </Paper>
-            </Grid>
+              </div>
+              <span className="rdp-completeness__label">{score}%</span>
+            </div>
+          </div>
+        </div>
+      </div>
 
-            {/* Existing Overview Content */}
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                Simulation Parameters
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Chip label={run.ensemble} color="primary" />
-                  {run.simulation_method && (
-                    <Chip
-                      label={run.simulation_method === 'H_ADRESS' ? 'H-AdResS' : run.simulation_method}
-                      color="error"
-                    />
-                  )}
-                  {run.simulation_method === 'H_ADRESS' && run.particle_insertion !== null && run.particle_insertion !== undefined && (
-                    <Chip
-                      label={run.particle_insertion ? 'Particle-Insertion' : 'Non-Particle-Insertion'}
-                      color="warning"
-                      variant="outlined"
-                    />
-                  )}
-                  <Chip label={run.engine.name} variant="outlined" />
-                </Box>
-                {run.temperature_target && (
-                  <Typography variant="body2">
-                    <strong>Temperature:</strong> {run.temperature_target} K
-                  </Typography>
-                )}
-                {run.pressure_target && (
-                  <Typography variant="body2">
-                    <strong>Pressure:</strong> {run.pressure_target} bar
-                  </Typography>
-                )}
-                {run.timestep && (
-                  <Typography variant="body2">
-                    <strong>Timestep:</strong> {run.timestep} fs
-                  </Typography>
-                )}
-                {run.n_steps && (
-                  <Typography variant="body2">
-                    <strong>Steps:</strong> {run.n_steps.toLocaleString()}
-                  </Typography>
-                )}
-                {run.total_time && (
-                  <Typography variant="body2">
-                    <strong>Total Time:</strong> {run.total_time.toFixed(2)} ns
-                  </Typography>
-                )}
-              </Box>
-            </Grid>
+      {/* Section tabs below grid */}
+      <div className="rdp-card" style={{ marginBottom: 'var(--space-6)' }}>
+        <div style={{ padding: 'var(--space-5)' }}>
+          <div className="rdp-section-tabs">
+            <button
+              className={`rdp-section-tab ${sectionTab === 0 ? 'rdp-section-tab--active' : ''}`}
+              onClick={() => setSectionTab(0)}
+            >
+              Observables
+            </button>
+            <button
+              className={`rdp-section-tab ${sectionTab === 1 ? 'rdp-section-tab--active' : ''}`}
+              onClick={() => setSectionTab(1)}
+            >
+              Data Quality
+            </button>
+            <button
+              className={`rdp-section-tab ${sectionTab === 2 ? 'rdp-section-tab--active' : ''}`}
+              onClick={() => setSectionTab(2)}
+            >
+              Artifacts
+            </button>
+            <button
+              className={`rdp-section-tab ${sectionTab === 3 ? 'rdp-section-tab--active' : ''}`}
+              onClick={() => setSectionTab(3)}
+            >
+              Log Metadata
+            </button>
+          </div>
 
-            <Grid item xs={12} md={6}>
-              <Typography variant="h6" gutterBottom>
-                System Information
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Typography variant="body2">
-                  <strong>Atoms:</strong> {run.system.n_atoms.toLocaleString()}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Composition:</strong> {run.system.composition}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Engine Version:</strong> {run.engine.version}
-                </Typography>
-              </Box>
-            </Grid>
-
-            {/* HPC / SLURM Information */}
-            {(run.slurm_job_id || run.compute_node) && (
-              <Grid item xs={12} md={6}>
-                <Typography variant="h6" gutterBottom>
-                  HPC / SLURM
-                </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {run.slurm_job_id && (
-                    <Typography variant="body2">
-                      <strong>SLURM Job ID:</strong> {run.slurm_job_id}
-                    </Typography>
-                  )}
-                  {run.compute_node && (
-                    <Typography variant="body2">
-                      <strong>Compute Node:</strong> {run.compute_node}
-                    </Typography>
-                  )}
-                </Box>
-              </Grid>
-            )}
-
-            {/* Log File Metadata */}
-            <Grid item xs={12}>
-              <LogMetadata runId={parseInt(runId || '0')} onUpdate={handleMetadataUpdate} />
-            </Grid>
-
-            {run.completeness_score !== undefined &&
-              run.completeness_score !== null &&
-              !completenessLoading &&
-              completeness && (
-                <Grid item xs={12}>
-                  <CompletenessCard completeness={completeness} />
-                </Grid>
-              )}
-          </Grid>
-        </TabPanel>
-
-        <TabPanel value={tabValue} index={1}>
-          {completenessLoading ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <CircularProgress />
-              <Typography sx={{ mt: 2 }}>Loading data quality information...</Typography>
-            </Box>
-          ) : completeness ? (
-            <CompletenessCard completeness={completeness} />
-          ) : (
-            <Alert severity="info">No data quality information available for this run.</Alert>
+          {/* Observables tab */}
+          {sectionTab === 0 && (
+            <div>
+              <ObservablePlots runId={parseInt(runId || '0')} />
+            </div>
           )}
-        </TabPanel>
 
-        <TabPanel value={tabValue} index={2}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6">
-              Artifacts ({artifacts.length})
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {artifacts.length > 0 && (
-                <Button
-                  variant="outlined"
-                  startIcon={<ArchiveIcon />}
-                  onClick={handleDownloadAll}
-                  size="small"
-                  color="primary"
-                >
-                  Download All
-                </Button>
+          {/* Data Quality tab */}
+          {sectionTab === 1 && (
+            <div>
+              {completenessLoading ? (
+                <div className="rdp-loading">
+                  <div className="rdp-loading__spinner" />
+                  Loading quality data...
+                </div>
+              ) : completeness ? (
+                <CompletenessCard completeness={completeness} />
+              ) : (
+                <p style={{ color: 'var(--fg-muted)' }}>
+                  No data quality information available for this run.
+                </p>
               )}
-              <Button
-                variant="outlined"
-                startIcon={<CloudUpload />}
-                onClick={() => setUploadArtifactsDialogOpen(true)}
-                size="small"
-              >
-                Upload Files
-              </Button>
-            </Box>
-          </Box>
-          {artifacts.length === 0 ? (
-            <Alert severity="info">
-              No artifacts found for this run. Click "Upload Files" to add trajectory, topology, or log files.
-            </Alert>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {artifacts.map((artifact) => (
-                <Paper key={artifact.id} variant="outlined" sx={{ p: 2 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="body1" fontWeight={500}>
-                        {artifact.file_name}
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-                        <Chip label={artifact.artifact_type} size="small" />
-                        <Chip
-                          label={`${(artifact.file_size_bytes ? (artifact.file_size_bytes / 1024 / 1024).toFixed(2) : '0.00')} MB`}
-                          size="small"
-                          variant="outlined"
-                        />
-                      </Box>
-                    </Box>
-                    <Tooltip title="Download file">
-                      <IconButton
-                        size="small"
-                        color="primary"
+            </div>
+          )}
+
+          {/* Artifacts tab */}
+          {sectionTab === 2 && (
+            <div className="rdp-artifacts">
+              <div className="rdp-artifacts__header">
+                <span style={{ fontWeight: 600 }}>
+                  Artifacts ({artifacts.length})
+                </span>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  {artifacts.length > 0 && (
+                    <button className="rdp-topbar__btn" onClick={handleDownloadAll}>
+                      <DownloadIcon /> Download All
+                    </button>
+                  )}
+                  <button
+                    className="rdp-topbar__btn"
+                    onClick={() => setUploadArtifactsDialogOpen(true)}
+                  >
+                    <UploadIcon /> Upload Files
+                  </button>
+                </div>
+              </div>
+
+              {artifacts.length === 0 ? (
+                <p style={{ color: 'var(--fg-muted)', fontSize: 'var(--text-sm)' }}>
+                  No artifacts found. Click "Upload Files" to add trajectory, topology, or log files.
+                </p>
+              ) : (
+                <div className="rdp-artifacts__list">
+                  {artifacts.map((artifact) => (
+                    <div key={artifact.id} className="rdp-artifact-item">
+                      <div>
+                        <div className="rdp-artifact-item__name">{artifact.file_name}</div>
+                        <div className="rdp-artifact-item__meta">
+                          <span className="rdp-artifact-item__chip">{artifact.artifact_type}</span>
+                          <span className="rdp-artifact-item__chip">
+                            {artifact.file_size_bytes
+                              ? `${(artifact.file_size_bytes / 1024 / 1024).toFixed(2)} MB`
+                              : '0.00 MB'}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        className="rdp-artifact-item__dl"
                         onClick={() => handleDownloadArtifact(artifact.id, artifact.file_name)}
+                        aria-label="Download"
                       >
                         <DownloadIcon />
-                      </IconButton>
-                    </Tooltip>
-                  </Box>
-                </Paper>
-              ))}
-            </Box>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
-        </TabPanel>
 
-        <TabPanel value={tabValue} index={3}>
-          <Typography variant="h6" gutterBottom>
-            Observable Plots
-          </Typography>
-          <Typography variant="body2" color="text.secondary" gutterBottom sx={{ mb: 2 }}>
-            Interactive plots of thermodynamic observables from log files
-          </Typography>
-          <ObservablePlots runId={parseInt(runId || '0')} />
-        </TabPanel>
-      </Paper>
+          {/* Log Metadata tab */}
+          {sectionTab === 3 && (
+            <div>
+              <LogMetadata runId={parseInt(runId || '0')} onUpdate={handleMetadataUpdate} />
+            </div>
+          )}
+        </div>
+      </div>
 
-      {/* Edit Dialog */}
+      {/* Dialogs */}
       <EditRunDialog
         open={editDialogOpen}
         run={run}
@@ -443,7 +417,6 @@ export const RunDetailPage: React.FC = () => {
         onSave={handleEditSave}
       />
 
-      {/* Delete Confirmation Dialog */}
       <DeleteConfirmDialog
         open={deleteDialogOpen}
         run={run}
@@ -451,19 +424,58 @@ export const RunDetailPage: React.FC = () => {
         onConfirm={handleDelete}
       />
 
-      {/* Upload Artifacts Dialog */}
       {runId && (
         <UploadArtifactsDialog
           open={uploadArtifactsDialogOpen}
           runId={parseInt(runId)}
           onClose={() => setUploadArtifactsDialogOpen(false)}
           onSuccess={async () => {
-            // Refresh artifacts list after successful upload
             const artifactsData = await apiClient.getRunArtifacts(parseInt(runId));
             setArtifacts(artifactsData);
           }}
         />
       )}
-    </Container>
+    </div>
   );
 };
+
+/* Inline SVG icon components */
+function ArrowLeftIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M10 12L6 8L10 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M7 2v7M7 9L4.5 6.5M7 9l2.5-2.5M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function EditIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M8.5 2.5l3 3L4.5 12.5H1.5v-3l7-7z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M2 4h10M5 4V2.5h4V4M3.5 4v8h7V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ display: 'inline-block', verticalAlign: 'middle' }}>
+      <path d="M7 9V2M7 2L4.5 4.5M7 2l2.5 2.5M2 11h10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  );
+}

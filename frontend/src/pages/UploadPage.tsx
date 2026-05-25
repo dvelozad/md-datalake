@@ -1,28 +1,12 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Container,
-  Paper,
-  Typography,
-  Button,
-  Alert,
-  Box,
-  Stepper,
-  Step,
-  StepLabel,
-  Divider,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-} from '@mui/material';
-import { CloudUpload, ArrowBack, Warning, Info } from '@mui/icons-material';
 import { UploadDropzone } from '@/components/upload/UploadDropzone';
 import { FileList } from '@/components/upload/FileList';
 import { UploadMetadataForm } from '@/components/upload/UploadMetadataForm';
 import { UploadProgress } from '@/components/upload/UploadProgress';
 import { apiClient } from '@/services/api';
 import type { UploadMetadata, ValidationInfo } from '@/types/visualization';
+import './UploadPage.css';
 
 type UploadStatus = 'idle' | 'uploading' | 'success' | 'error';
 
@@ -54,7 +38,6 @@ export const UploadPage: React.FC = () => {
   const handleRemoveFile = (index: number) => {
     const removedFile = files[index];
     setFiles((prev) => prev.filter((_, i) => i !== index));
-    // Remove artifact type for the removed file
     setArtifactTypes((prev) => {
       const updated = { ...prev };
       delete updated[removedFile.name];
@@ -80,7 +63,6 @@ export const UploadPage: React.FC = () => {
       return;
     }
 
-    // Check if LAMMPS trajectory requires atom style
     const hasLammpsTrajectory = files.some(f => {
       const name = f.name.toLowerCase();
       return name.endsWith('.dump') || name.endsWith('.lammpstrj');
@@ -106,7 +88,6 @@ export const UploadPage: React.FC = () => {
     } catch (error: any) {
       setUploadStatus('error');
 
-      // Handle validation errors (422)
       if (error.response?.status === 422) {
         const detail = error.response?.data?.detail;
         if (typeof detail === 'object' && detail.message) {
@@ -121,10 +102,8 @@ export const UploadPage: React.FC = () => {
           setErrorMessage('File validation failed. Please check your files and try again.');
         }
       } else {
-        // Handle other errors (400, 500, etc.)
         const detail = error.response?.data?.detail;
         if (typeof detail === 'object' && detail.message) {
-          // Detailed error object from backend
           setErrorMessage(`${detail.message}: ${detail.error || ''}`);
         } else if (typeof detail === 'string') {
           setErrorMessage(detail);
@@ -159,148 +138,136 @@ export const UploadPage: React.FC = () => {
     metadata.runName.trim() !== '' &&
     uploadStatus === 'idle';
 
+  function getStepClass(index: number): string {
+    if (index < activeStep) return 'up-stepper__number--done';
+    if (index === activeStep) return 'up-stepper__number--active';
+    return '';
+  }
+
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-          <Button startIcon={<ArrowBack />} onClick={() => navigate('/')}>
-            Back to Runs
-          </Button>
-        </Box>
-        <Typography variant="h4" gutterBottom>
-          Upload Simulation Data
-        </Typography>
-        <Typography variant="body1" color="text.secondary">
-          Upload LAMMPS or GROMACS simulation files including trajectories, topologies, input
-          scripts, and log files.
-        </Typography>
-      </Box>
+    <div className="up-page">
+      {/* Back button */}
+      <button className="up-back" onClick={() => navigate('/')}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+          <path d="M8.75 3.5L5.25 7L8.75 10.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        Back to Runs
+      </button>
 
-      <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel>{label}</StepLabel>
-          </Step>
+      {/* Header */}
+      <h1 className="up-title">Upload simulation data</h1>
+      <p className="up-subtitle">
+        Drop trajectory and topology files. LAMMPS or GROMACS. Maximum 5 GB per file.
+      </p>
+
+      {/* Stepper */}
+      <div className="up-stepper">
+        {steps.map((label, idx) => (
+          <React.Fragment key={label}>
+            {idx > 0 && <div className="up-stepper__line" />}
+            <div className="up-stepper__step">
+              <span className={`up-stepper__number ${getStepClass(idx)}`}>
+                {idx < activeStep ? '\u2713' : idx + 1}
+              </span>
+              <span className={`up-stepper__label ${idx === activeStep ? 'up-stepper__label--active' : ''}`}>
+                {label}
+              </span>
+            </div>
+          </React.Fragment>
         ))}
-      </Stepper>
+      </div>
 
+      {/* Success state */}
       {uploadStatus === 'success' ? (
-        <Paper sx={{ p: 4 }}>
-          <Alert severity="success" sx={{ mb: 3 }}>
+        <div className="up-card">
+          <div className="up-alert up-alert--success">
             Successfully uploaded and ingested simulation run!
-          </Alert>
-          <Typography variant="body1" gutterBottom>
+          </div>
+          <p style={{ fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', color: 'var(--fg-default)' }}>
             Your simulation has been uploaded and processed. Run ID: {createdRunId}
-          </Typography>
+          </p>
 
-          {/* Display validation warnings and recommendations */}
           {validationInfo && (validationInfo.warnings.length > 0 || validationInfo.recommendations.length > 0) && (
-            <Box sx={{ mt: 3 }}>
+            <div style={{ marginTop: 'var(--space-4)' }}>
               {validationInfo.warnings.length > 0 && (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  <Typography variant="subtitle2" gutterBottom>
-                    Warnings:
-                  </Typography>
-                  <List dense>
+                <div className="up-alert up-alert--warning">
+                  <div className="up-alert__title">Warnings:</div>
+                  <ul className="up-alert__list">
                     {validationInfo.warnings.map((warning, idx) => (
-                      <ListItem key={idx} sx={{ py: 0 }}>
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <Warning fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText primary={warning} />
-                      </ListItem>
+                      <li key={idx}>{warning}</li>
                     ))}
-                  </List>
-                </Alert>
+                  </ul>
+                </div>
               )}
-
               {validationInfo.recommendations.length > 0 && (
-                <Alert severity="info">
-                  <Typography variant="subtitle2" gutterBottom>
-                    Recommendations:
-                  </Typography>
-                  <List dense>
+                <div className="up-alert up-alert--info">
+                  <div className="up-alert__title">Recommendations:</div>
+                  <ul className="up-alert__list">
                     {validationInfo.recommendations.map((rec, idx) => (
-                      <ListItem key={idx} sx={{ py: 0 }}>
-                        <ListItemIcon sx={{ minWidth: 32 }}>
-                          <Info fontSize="small" />
-                        </ListItemIcon>
-                        <ListItemText primary={rec} />
-                      </ListItem>
+                      <li key={idx}>{rec}</li>
                     ))}
-                  </List>
-                </Alert>
+                  </ul>
+                </div>
               )}
-            </Box>
+            </div>
           )}
 
-          <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
-            <Button variant="contained" onClick={handleViewRun}>
+          <div className="up-success-actions">
+            <button className="up-btn-primary" onClick={handleViewRun}>
               View Run
-            </Button>
-            <Button variant="outlined" onClick={handleReset}>
+            </button>
+            <button className="up-btn-ghost" onClick={handleReset}>
               Upload Another
-            </Button>
-          </Box>
-        </Paper>
+            </button>
+          </div>
+        </div>
       ) : (
-        <Paper sx={{ p: 4 }}>
+        <div className="up-card">
+          {/* Error display */}
           {errorMessage && (
-            <Box sx={{ mb: 3 }}>
-              <Alert severity="error" onClose={() => setErrorMessage('')}>
+            <div>
+              <div className="up-alert up-alert--error">
                 {errorMessage}
-              </Alert>
+              </div>
 
-              {/* Display validation errors if present */}
               {uploadStatus === 'error' && validationInfo && (
-                <Box sx={{ mt: 2 }}>
+                <>
                   {validationInfo.warnings.length > 0 && (
-                    <Alert severity="warning" sx={{ mb: 1 }}>
-                      <Typography variant="subtitle2" gutterBottom>
-                        Issues found:
-                      </Typography>
-                      <List dense>
+                    <div className="up-alert up-alert--warning">
+                      <div className="up-alert__title">Issues found:</div>
+                      <ul className="up-alert__list">
                         {validationInfo.warnings.map((warning, idx) => (
-                          <ListItem key={idx} sx={{ py: 0 }}>
-                            <ListItemText primary={warning} />
-                          </ListItem>
+                          <li key={idx}>{warning}</li>
                         ))}
-                      </List>
-                    </Alert>
+                      </ul>
+                    </div>
                   )}
-
                   {validationInfo.recommendations.length > 0 && (
-                    <Alert severity="info">
-                      <Typography variant="subtitle2" gutterBottom>
-                        How to fix:
-                      </Typography>
-                      <List dense>
+                    <div className="up-alert up-alert--info">
+                      <div className="up-alert__title">How to fix:</div>
+                      <ul className="up-alert__list">
                         {validationInfo.recommendations.map((rec, idx) => (
-                          <ListItem key={idx} sx={{ py: 0 }}>
-                            <ListItemText primary={rec} />
-                          </ListItem>
+                          <li key={idx}>{rec}</li>
                         ))}
-                      </List>
-                    </Alert>
+                      </ul>
+                    </div>
                   )}
-                </Box>
+                </>
               )}
-            </Box>
+            </div>
           )}
 
-          <Box sx={{ mb: 3 }}>
-            <UploadDropzone
-              onFilesSelected={handleFilesSelected}
-              disabled={uploadStatus === 'uploading'}
-            />
-          </Box>
+          {/* Dropzone */}
+          <UploadDropzone
+            onFilesSelected={handleFilesSelected}
+            disabled={uploadStatus === 'uploading'}
+          />
 
+          {/* File list */}
           {files.length > 0 && (
             <>
-              <Divider sx={{ my: 3 }} />
-              <Typography variant="h6" gutterBottom>
-                Selected Files ({files.length})
-              </Typography>
+              <hr className="up-divider" />
+              <p className="up-eyebrow">Selected files ({files.length})</p>
               <FileList
                 files={files}
                 artifactTypes={artifactTypes}
@@ -311,11 +278,10 @@ export const UploadPage: React.FC = () => {
             </>
           )}
 
-          <Divider sx={{ my: 3 }} />
+          <hr className="up-divider" />
 
-          <Typography variant="h6" gutterBottom>
-            Simulation Metadata
-          </Typography>
+          {/* Metadata form */}
+          <p className="up-eyebrow">Simulation metadata</p>
           <UploadMetadataForm
             metadata={metadata}
             onChange={setMetadata}
@@ -323,32 +289,32 @@ export const UploadPage: React.FC = () => {
             files={files}
           />
 
+          {/* Upload progress */}
           {uploadStatus === 'uploading' && (
-            <Box sx={{ mt: 3 }}>
+            <div className="up-progress">
               <UploadProgress progress={uploadProgress} />
-            </Box>
+            </div>
           )}
 
-          <Box sx={{ mt: 4, display: 'flex', gap: 2 }}>
-            <Button
-              variant="contained"
-              startIcon={<CloudUpload />}
+          {/* Action buttons */}
+          <div className="up-actions">
+            <button
+              className="up-btn-primary"
               onClick={handleUpload}
               disabled={!canUpload}
-              size="large"
             >
               {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload'}
-            </Button>
-            <Button
-              variant="outlined"
+            </button>
+            <button
+              className="up-btn-ghost"
               onClick={handleReset}
               disabled={uploadStatus === 'uploading'}
             >
-              Reset
-            </Button>
-          </Box>
-        </Paper>
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
-    </Container>
+    </div>
   );
 };

@@ -1,10 +1,9 @@
-import React, { useMemo, useEffect, useRef } from 'react';
-import { Box, Typography, Chip, LinearProgress, IconButton, Tooltip } from '@mui/material';
-import { ArrowForward } from '@mui/icons-material';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MaterialReactTable, type MRT_ColumnDef } from 'material-react-table';
 import type { SimulationRun } from '@/types/visualization';
-import { RunTableExpandedRow } from './RunTableExpandedRow';
+import './RunTable.css';
+
+export type TableStyle = 'notebook' | 'editorial';
 
 interface RunTableProps {
   runs: SimulationRun[];
@@ -15,6 +14,55 @@ interface RunTableProps {
   onPageChange: (page: number) => void;
   onPageSizeChange: (pageSize: number) => void;
   onRunSelect?: (runId: number) => void;
+  tableStyle?: TableStyle;
+}
+
+const METHOD_COLORS: Record<string, string> = {
+  ATOMISTIC: '#2f4ea8',
+  H_ADRESS: '#7d3cc6',
+  COARSE_GRAINED: '#16936a',
+  UNITED_ATOM: '#c87005',
+  MONTE_CARLO: '#c44a85',
+};
+
+const METHOD_LABELS: Record<string, string> = {
+  ATOMISTIC: 'Atomistic',
+  H_ADRESS: 'H-AdResS',
+  COARSE_GRAINED: 'Coarse-Grained',
+  UNITED_ATOM: 'United Atom',
+  MONTE_CARLO: 'Monte Carlo',
+};
+
+function formatLength(ns: number | undefined | null): string {
+  if (!ns && ns !== 0) return '--';
+  if (ns >= 1000) return `${(ns / 1000).toFixed(1)} \u00B5s`;
+  if (ns >= 1) return `${ns.toFixed(1)} ns`;
+  return `${(ns * 1000).toFixed(0)} ps`;
+}
+
+function formatAtoms(n: number | undefined | null): string {
+  if (!n) return '--';
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(n);
+}
+
+function getConditions(run: SimulationRun, style: TableStyle): string {
+  if (style === 'notebook') {
+    const parts: string[] = [];
+    if (run.ensemble) parts.push(run.ensemble);
+    if (run.temperature_target) parts.push(`${run.temperature_target} K`);
+    if (run.pressure_target) parts.push(`${run.pressure_target} bar`);
+    return parts.join(' \u00B7 ');
+  }
+  // editorial: show composition in conditions
+  return run.system?.composition || `${run.system?.n_atoms || 0} atoms`;
+}
+
+function getQualityColor(score: number): string {
+  if (score >= 80) return 'green';
+  if (score >= 50) return 'orange';
+  return 'red';
 }
 
 export const RunTable: React.FC<RunTableProps> = ({
@@ -25,489 +73,217 @@ export const RunTable: React.FC<RunTableProps> = ({
   totalRows,
   onPageChange,
   onPageSizeChange,
+  tableStyle = 'notebook',
 }) => {
   const navigate = useNavigate();
-  const [expanded, setExpanded] = React.useState<Record<string, boolean>>({});
-  const expandedRowRefs = useRef<Record<string, HTMLElement | null>>({});
 
-  // Auto-scroll to expanded row
-  useEffect(() => {
-    const expandedKeys = Object.keys(expanded).filter((key) => expanded[key]);
-    if (expandedKeys.length > 0) {
-      const lastExpandedKey = expandedKeys[expandedKeys.length - 1];
-      const rowElement = expandedRowRefs.current[lastExpandedKey];
-      if (rowElement) {
-        // Wait a bit for the expansion animation to start
-        setTimeout(() => {
-          rowElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }, 100);
-      }
-    }
-  }, [expanded]);
+  const totalPages = Math.max(1, Math.ceil(totalRows / pageSize));
 
-  const columns = useMemo<MRT_ColumnDef<SimulationRun>[]>(
-    () => [
-      {
-        accessorKey: 'run_name',
-        header: 'Name',
-        size: 250,
-        filterVariant: 'text',
-        Cell: ({ cell }) => (
-          <Typography variant="body2" fontWeight={600}>
-            {cell.getValue<string>()}
-          </Typography>
-        ),
-      },
-      {
-        accessorFn: (row) => row.system?.composition || `${row.system?.n_atoms || 0} atoms`,
-        id: 'composition',
-        header: 'Composition',
-        size: 200,
-        filterVariant: 'text',
-        Cell: ({ row }) => (
-          <Typography variant="body2" color="text.secondary">
-            {row.original.system?.composition || `${row.original.system?.n_atoms || 0} atoms`}
-          </Typography>
-        ),
-      },
-      {
-        accessorKey: 'simulation_method',
-        header: 'Type',
-        size: 180,
-        filterVariant: 'select',
-        filterSelectOptions: [
-          { text: 'All', value: '' },
-          { text: 'ATOMISTIC', value: 'ATOMISTIC' },
-          { text: 'H-AdResS', value: 'H_ADRESS' },
-          { text: 'COARSE_GRAINED', value: 'COARSE_GRAINED' },
-          { text: 'UNITED_ATOM', value: 'UNITED_ATOM' },
-        ],
-        Cell: ({ cell, row }) => {
-          const method = cell.getValue<string>() || 'Unknown';
-          const displayMethod = method === 'H_ADRESS' ? 'H-AdResS' : method;
+  const handleRowClick = (run: SimulationRun) => {
+    navigate(`/runs/${run.id}`);
+  };
 
-          return (
-            <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-              <Chip
-                label={displayMethod}
-                size="small"
-                variant="outlined"
-                color="primary"
-              />
-              {method === 'H_ADRESS' &&
-               row.original.particle_insertion !== null &&
-               row.original.particle_insertion !== undefined && (
-                <Chip
-                  label={row.original.particle_insertion ? 'PI' : 'Non-PI'}
-                  size="small"
-                  color="warning"
-                  variant="outlined"
-                />
-              )}
-            </Box>
-          );
-        },
-      },
-      {
-        accessorKey: 'created_at',
-        header: 'Upload Date',
-        size: 180,
-        filterVariant: 'date-range',
-        Cell: ({ cell }) => {
-          const date = new Date(cell.getValue<string>());
-          return (
-            <Typography variant="body2" color="text.secondary">
-              {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-            </Typography>
-          );
-        },
-      },
-      {
-        accessorKey: 'completeness_score',
-        header: 'Quality',
-        size: 150,
-        filterVariant: 'range-slider',
-        muiFilterSliderProps: {
-          marks: true,
-          min: 0,
-          max: 100,
-          step: 10,
-        },
-        Cell: ({ cell }) => {
-          const score = cell.getValue<number>() || 0;
-          const color = score >= 80 ? 'success' : score >= 50 ? 'warning' : 'error';
-          return (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <LinearProgress
-                variant="determinate"
-                value={score}
-                color={color}
-                sx={{ flex: 1, height: 4, borderRadius: 1 }}
-              />
-              <Typography variant="body2" fontWeight={600} color={`${color}.main`}>
-                {score.toFixed(0)}%
-              </Typography>
-            </Box>
-          );
-        },
-      },
-      {
-        id: 'actions',
-        header: '',
-        size: 60,
-        enableColumnActions: false,
-        enableSorting: false,
-        enableColumnFilter: false,
-        Cell: ({ row }) => (
-          <Tooltip title="View Full Details" placement="left">
-            <IconButton
-              size="small"
-              onClick={(e) => {
-                e.stopPropagation();
-                navigate(`/runs/${row.original.id}`);
-              }}
-              sx={{
-                color: 'primary.main',
-                '&:hover': {
-                  backgroundColor: 'rgba(46, 100, 235, 0.1)',
-                  transform: 'translateX(4px)',
-                },
-                transition: 'all 0.2s ease',
-              }}
-            >
-              <ArrowForward fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        ),
-      },
-    ],
-    [navigate]
-  );
+  // Pagination page numbers to show
+  const getPageNumbers = (): number[] => {
+    const pages: number[] = [];
+    const start = Math.max(0, page - 2);
+    const end = Math.min(totalPages - 1, page + 2);
+    for (let i = start; i <= end; i++) pages.push(i);
+    return pages;
+  };
+
+  const cardClass = tableStyle === 'notebook' ? 'rt-card--notebook' : 'rt-card--editorial';
+  const rowClass = tableStyle === 'notebook' ? 'rt-row--notebook' : 'rt-row--editorial';
 
   return (
-    <MaterialReactTable
-      columns={columns}
-      data={runs}
-      defaultColumn={{ grow: true }}
-      enableExpanding
-      renderDetailPanel={({ row }) => (
-        <div ref={(el) => { expandedRowRefs.current[row.id] = el; }}>
-          <RunTableExpandedRow run={row.original} />
+    <div className={cardClass}>
+      {/* Table scroll area */}
+      <div className="rt-scroll">
+        {isLoading ? (
+          <div className="rt-loading">
+            <div className="rt-loading__spinner" />
+            Loading runs...
+          </div>
+        ) : (
+          <table className="rt-table">
+            <thead>
+              <tr>
+                <th className="rt-col-name">Name</th>
+                <th className="rt-col-cond">Conditions</th>
+                <th className="rt-col-type">Type</th>
+                <th className="rt-col-length">Length</th>
+                <th className="rt-col-atoms">Atoms</th>
+                <th className="rt-col-quality">Quality</th>
+                <th className="rt-col-arrow"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {runs.map((run) => {
+                const method = run.simulation_method || 'ATOMISTIC';
+                const methodColor = METHOD_COLORS[method] || METHOD_COLORS.ATOMISTIC;
+                const methodLabel = METHOD_LABELS[method] || method;
+                const score = run.completeness_score || 0;
+                const qualityColor = getQualityColor(score);
+
+                return (
+                  <tr
+                    key={run.id}
+                    className={rowClass}
+                    onClick={() => handleRowClick(run)}
+                  >
+                    {/* Name */}
+                    <td>
+                      {tableStyle === 'notebook' ? (
+                        <div>
+                          <div className="rt-name-primary">{run.run_name}</div>
+                          <div className="rt-name-secondary">
+                            {run.system?.composition || `${run.system?.n_atoms || 0} atoms`}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="rt-name-mono">{run.run_name}</div>
+                      )}
+                    </td>
+
+                    {/* Conditions */}
+                    <td>
+                      <span className="rt-cond-text">
+                        {getConditions(run, tableStyle)}
+                      </span>
+                    </td>
+
+                    {/* Type */}
+                    <td>
+                      <span
+                        className="rt-method-tag"
+                        style={{ background: methodColor }}
+                      >
+                        {methodLabel}
+                      </span>
+                    </td>
+
+                    {/* Length */}
+                    <td>
+                      <span className="rt-length-text">
+                        {formatLength(run.total_time)}
+                      </span>
+                    </td>
+
+                    {/* Atoms */}
+                    <td>
+                      <span className="rt-atoms-text">
+                        {formatAtoms(run.system?.n_atoms)}
+                      </span>
+                    </td>
+
+                    {/* Quality */}
+                    <td>
+                      <div className="rt-quality">
+                        <div className="rt-quality-track">
+                          <div
+                            className={`rt-quality-fill rt-quality-fill--${qualityColor}`}
+                            style={{ width: `${score}%` }}
+                          />
+                        </div>
+                        <span className="rt-quality-label">{score}</span>
+                      </div>
+                    </td>
+
+                    {/* Arrow */}
+                    <td>
+                      <button
+                        className="rt-arrow-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/runs/${run.id}`);
+                        }}
+                        aria-label="View run details"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                          <path
+                            d="M5.25 3.5L8.75 7L5.25 10.5"
+                            stroke="currentColor"
+                            strokeWidth="1.5"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Pagination */}
+      <div className="rt-pagination">
+        <div className="rt-pagination__info">
+          {totalRows > 0
+            ? `${page * pageSize + 1}\u2013${Math.min((page + 1) * pageSize, totalRows)} of ${totalRows}`
+            : 'No results'}
         </div>
-      )}
 
-      // Pagination
-      manualPagination
-      rowCount={totalRows}
-      onPaginationChange={(updater) => {
-        const newState = typeof updater === 'function'
-          ? updater({ pageIndex: page, pageSize })
-          : updater;
-        onPageChange(newState.pageIndex);
-        onPageSizeChange(newState.pageSize);
-      }}
-      state={{
-        isLoading,
-        pagination: { pageIndex: page, pageSize },
-        expanded,
-      }}
-      onExpandedChange={setExpanded}
+        <div className="rt-pagination__controls">
+          <select
+            className="rt-pagination__select"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          >
+            {[10, 20, 50, 100].map((size) => (
+              <option key={size} value={size}>
+                {size} / page
+              </option>
+            ))}
+          </select>
 
-      // Styling
-      muiTablePaperProps={{
-        elevation: 2,
-        sx: {
-          borderRadius: 0.5,
-          overflow: 'hidden',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          border: 'none',
-          background: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'linear-gradient(180deg, rgba(30,30,30,1) 0%, rgba(20,20,20,1) 100%)'
-              : 'linear-gradient(180deg, #ffffff 0%, #fafbfc 100%)',
-          // Hide all scrollbars within the table
-          '& *': {
-            scrollbarWidth: 'none !important',
-            msOverflowStyle: 'none !important',
-            '&::-webkit-scrollbar': {
-              display: 'none !important',
-              width: '0 !important',
-              height: '0 !important',
-            },
-          },
-          // Specifically target table cells
-          '& td, & th': {
-            overflow: 'hidden !important',
-            scrollbarWidth: 'none !important',
-            msOverflowStyle: 'none !important',
-            '&::-webkit-scrollbar': {
-              display: 'none !important',
-            },
-          },
-        },
-      }}
-      muiTableContainerProps={{
-        sx: {
-          flex: 1,
-          width: '100%',
-          overflow: 'auto',
-          // Custom scrollbar styling
-          scrollbarWidth: 'thin',
-          scrollbarColor: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(255, 255, 255, 0.3) rgba(255, 255, 255, 0.1)'
-              : 'rgba(0, 0, 0, 0.3) rgba(0, 0, 0, 0.1)',
-          '&::-webkit-scrollbar': {
-            width: '10px',
-            height: '10px',
-          },
-          '&::-webkit-scrollbar-track': {
-            background: (theme) =>
-              theme.palette.mode === 'dark'
-                ? 'rgba(255, 255, 255, 0.05)'
-                : 'rgba(0, 0, 0, 0.05)',
-            borderRadius: '2px',
-          },
-          '&::-webkit-scrollbar-thumb': {
-            background: (theme) =>
-              theme.palette.mode === 'dark'
-                ? 'rgba(255, 255, 255, 0.3)'
-                : 'rgba(0, 0, 0, 0.3)',
-            borderRadius: '2px',
-            '&:hover': {
-              background: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.5)'
-                  : 'rgba(0, 0, 0, 0.5)',
-            },
-          },
-        },
-      }}
-      muiTableProps={{
-        sx: {
-          width: '100%',
-          tableLayout: 'auto',
-        },
-      }}
-      muiTableHeadCellProps={{
-        sx: {
-          backgroundColor: (theme) =>
-            theme.palette.mode === 'dark'
-              ? '#2a2a2a'
-              : '#f0f2f5',
-          borderBottom: '2px solid',
-          borderColor: 'primary.main',
-          fontSize: '0.75rem',
-          fontWeight: 800,
-          textTransform: 'uppercase',
-          letterSpacing: '0.8px',
-          color: 'text.primary',
-          fontFamily: 'Inter, system-ui, sans-serif',
-          cursor: 'pointer',
-          '&:hover': {
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '#353535'
-                : '#e8eaf0',
-          },
-        },
-      }}
-      muiTableBodyRowProps={({ row }) => ({
-        sx: {
-          cursor: 'pointer',
-          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-          // Solid color highlight when expanded
-          backgroundColor: row.getIsExpanded()
-            ? (theme) =>
-                theme.palette.mode === 'dark'
-                  ? '#1e3a8a' // Dark blue for dark theme
-                  : '#2563eb' // Bright blue for light theme
-            : undefined,
-          transform: row.getIsExpanded() ? 'scale(1.001)' : undefined,
-          // White text when expanded
-          color: row.getIsExpanded() ? '#ffffff' : undefined,
-          '& .MuiTypography-root': {
-            color: row.getIsExpanded() ? '#ffffff !important' : undefined,
-          },
-          '& .MuiChip-root': {
-            backgroundColor: row.getIsExpanded()
-              ? (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.2)'
-                    : 'rgba(255, 255, 255, 0.25)'
-              : undefined,
-            color: row.getIsExpanded() ? '#ffffff' : undefined,
-            borderColor: row.getIsExpanded() ? 'rgba(255, 255, 255, 0.4)' : undefined,
-          },
-          '&:hover': row.getIsExpanded() ? {} : {
-            backgroundColor: (theme) =>
-              theme.palette.mode === 'dark'
-                ? '#1e3a8a'
-                : '#2563eb',
-            color: '#ffffff',
-            '& .MuiTypography-root': {
-              color: '#ffffff !important',
-            },
-            '& .MuiChip-root': {
-              backgroundColor: (theme) =>
-                theme.palette.mode === 'dark'
-                  ? 'rgba(255, 255, 255, 0.2)'
-                  : 'rgba(255, 255, 255, 0.25)',
-              color: '#ffffff',
-              borderColor: 'rgba(255, 255, 255, 0.4)',
-            },
-          },
-          '&:nth-of-type(even)': {
-            backgroundColor: row.getIsExpanded()
-              ? (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? '#1e3a8a'
-                    : '#2563eb'
-              : (theme) =>
-                  theme.palette.mode === 'dark'
-                    ? 'rgba(255, 255, 255, 0.015)'
-                    : 'rgba(0, 0, 0, 0.02)',
-          },
-        },
-      })}
-      muiTableBodyCellProps={({ row, table }) => ({
-        onClick: () => {
-          // Only allow one row expanded at a time
-          const currentlyExpanded = Object.keys(expanded).find(key => expanded[key]);
-          if (currentlyExpanded && currentlyExpanded !== row.id) {
-            // Collapse the currently expanded row
-            setExpanded({ [row.id]: true });
-          } else {
-            // Toggle current row
-            row.toggleExpanded();
-          }
-        },
-        sx: {
-          borderBottom: '1px solid',
-          borderColor: row.getIsExpanded() ? 'rgba(255, 255, 255, 0.2)' : 'divider',
-          py: 0.5,
-          fontFamily: 'Inter, system-ui, sans-serif',
-          overflow: 'hidden',
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          '&::-webkit-scrollbar': {
-            display: 'none',
-            width: 0,
-            height: 0,
-          },
-          // White icons when row is expanded
-          '& .MuiIconButton-root': {
-            color: row.getIsExpanded() ? '#ffffff' : undefined,
-          },
-          '& .MuiLinearProgress-root': {
-            backgroundColor: row.getIsExpanded() ? 'rgba(255, 255, 255, 0.3)' : undefined,
-          },
-          '& .MuiLinearProgress-bar': {
-            backgroundColor: row.getIsExpanded() ? '#ffffff' : undefined,
-          },
-        },
-      })}
-      muiExpandButtonProps={{
-        sx: {
-          color: 'primary.main',
-          '&:hover': {
-            backgroundColor: 'rgba(99, 102, 241, 0.1)',
-          },
-        },
-      }}
-      muiDetailPanelProps={{
-        onClick: (e) => e.stopPropagation(), // Prevent clicks from collapsing the row
-        sx: {
-          backgroundColor: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(255, 255, 255, 0.05) !important'
-              : 'rgba(0, 0, 0, 0.04) !important',
-          overflow: 'hidden !important',
-          overflowY: 'hidden !important',
-          overflowX: 'hidden !important',
-          maxHeight: 'none',
-          // Reset colors to prevent parent blue background from affecting detail panel
-          color: 'text.primary !important',
-          '& .MuiTypography-root': {
-            color: 'inherit !important',
-          },
-          '& .MuiChip-root': {
-            color: 'inherit !important',
-          },
-          // Force scrollbar to be completely invisible
-          scrollbarWidth: 'none',
-          msOverflowStyle: 'none',
-          '&::-webkit-scrollbar': {
-            display: 'none',
-            width: '0 !important',
-            height: '0 !important',
-          },
-          '&:hover': {
-            overflow: 'hidden !important',
-            overflowY: 'hidden !important',
-            overflowX: 'hidden !important',
-            color: 'text.primary !important',
-            backgroundColor: 'background.paper !important',
-          },
-          '& *': {
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none',
-            '&::-webkit-scrollbar': {
-              display: 'none',
-              width: 0,
-              height: 0,
-            },
-          },
-        },
-      }}
+          <button
+            className="rt-pagination__btn"
+            disabled={page === 0}
+            onClick={() => onPageChange(0)}
+            aria-label="First page"
+          >
+            &#x21E4;
+          </button>
+          <button
+            className="rt-pagination__btn"
+            disabled={page === 0}
+            onClick={() => onPageChange(page - 1)}
+            aria-label="Previous page"
+          >
+            &#x2039;
+          </button>
 
-      // Options
-      enableColumnActions={false}
-      enableSorting={true}
-      enableColumnFilters={true}
-      enableDensityToggle={false}
-      enableFullScreenToggle={false}
-      enableHiding={false}
-      enablePagination={true}
-      enableExpandAll={false}
-      enableGlobalFilter={false}
-      enableTopToolbar={false}
-      manualFiltering={false} // Use client-side filtering for now
-      enableMultiSort={false} // Only one column at a time
-      layoutMode="semantic"
-      displayColumnDefOptions={{
-        'mrt-row-expand': {
-          size: 0,
-          grow: false,
-          muiTableHeadCellProps: { sx: { display: 'none' } },
-          muiTableBodyCellProps: { sx: { display: 'none' } },
-        },
-      }}
-      paginationDisplayMode="pages"
-      initialState={{
-        density: 'compact',
-        pagination: {
-          pageIndex: 0,
-          pageSize: 20,
-        },
-      }}
-      muiPaginationProps={{
-        showFirstButton: true,
-        showLastButton: true,
-      }}
-      muiBottomToolbarProps={{
-        sx: {
-          borderTop: '2px solid',
-          borderColor: 'divider',
-          backgroundColor: (theme) =>
-            theme.palette.mode === 'dark'
-              ? 'rgba(30, 30, 30, 0.95)'
-              : 'rgba(250, 251, 252, 0.95)',
-          minHeight: '56px',
-        },
-      }}
-    />
+          {getPageNumbers().map((p) => (
+            <button
+              key={p}
+              className={`rt-pagination__btn ${p === page ? 'rt-pagination__btn--active' : ''}`}
+              onClick={() => onPageChange(p)}
+            >
+              {p + 1}
+            </button>
+          ))}
+
+          <button
+            className="rt-pagination__btn"
+            disabled={page >= totalPages - 1}
+            onClick={() => onPageChange(page + 1)}
+            aria-label="Next page"
+          >
+            &#x203A;
+          </button>
+          <button
+            className="rt-pagination__btn"
+            disabled={page >= totalPages - 1}
+            onClick={() => onPageChange(totalPages - 1)}
+            aria-label="Last page"
+          >
+            &#x21E5;
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };

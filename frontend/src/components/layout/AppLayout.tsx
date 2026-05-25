@@ -6,6 +6,8 @@ interface AppLayoutProps {
   children: ReactNode;
 }
 
+const FOOTER_HEIGHT = 28;
+
 export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -17,21 +19,29 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           display: 'flex',
           flexDirection: 'column',
           overflow: 'auto',
+          // Reserve space for the fixed footer
+          pb: `${FOOTER_HEIGHT}px`,
         }}
       >
         {children}
       </Box>
-      {/* Affiliation footer */}
+      {/* Affiliation footer — fixed to bottom of viewport */}
       <Box
         component="footer"
         sx={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: FOOTER_HEIGHT,
+          zIndex: (theme) => theme.zIndex.drawer + 2,
           display: 'flex',
           alignItems: 'center',
           gap: 1,
           px: '18px',
-          py: '6px',
           borderTop: '1px solid',
           borderColor: 'divider',
+          bgcolor: 'background.default',
           fontFamily: "'IBM Plex Mono', monospace",
           fontSize: '9.5px',
           fontWeight: 500,
